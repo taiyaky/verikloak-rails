@@ -241,8 +241,8 @@ class CompactErrorRenderer
 
     if status == 401
       hdr = +'Bearer'
-      hdr << %( error="#{code}") if code
-      hdr << %( error_description="#{message}") if message && !message.empty?
+      hdr << %( error="#{sanitize_quoted(code)}") if code
+      hdr << %( error_description="#{sanitize_quoted(message)}") if message && !message.empty?
       controller.response.set_header('WWW-Authenticate', hdr)
     end
 
@@ -252,6 +252,18 @@ end
 
 Rails.application.configure do
   config.verikloak.error_renderer = CompactErrorRenderer.new
+end
+```
+
+Note: Always sanitize values placed into `WWW-Authenticate` header parameters to avoid header injection. For example:
+
+```ruby
+class CompactErrorRenderer
+  private
+  def sanitize_quoted(val)
+    # Escape quotes/backslashes and strip CR/LF
+    val.to_s.gsub(/(["\\])/) { |m| "\\#{m}" }.gsub(/[\r\n]/, ' ')
+  end
 end
 ```
 
