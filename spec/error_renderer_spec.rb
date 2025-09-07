@@ -75,4 +75,16 @@ RSpec.describe Verikloak::Rails::ErrorRenderer do
     expect(controller.rendered[:status]).to eq(503)
     expect(controller.response.headers['WWW-Authenticate']).to be_nil
   end
+
+  it 'sanitizes values in WWW-Authenticate to prevent header injection' do
+    error = ::Verikloak::Error.new('invalid_token', "bad\"\r\ndesc")
+    renderer.render(controller, error)
+    hdr = controller.response.headers['WWW-Authenticate']
+    expect(hdr).to include('error="invalid_token"')
+    # No newlines are allowed in header
+    expect(hdr).not_to include("\r")
+    expect(hdr).not_to include("\n")
+    # Quote is escaped inside the quoted-string value; CR/LF collapsed to spaces
+    expect(hdr).to include('error_description="bad\\"  desc"')
+  end
 end
