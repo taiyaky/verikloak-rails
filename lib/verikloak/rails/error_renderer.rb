@@ -34,8 +34,8 @@ module Verikloak
         headers = {}
         if status == 401
           hdr = +'Bearer'
-          hdr << %( error="#{code}") if code
-          hdr << %( error_description="#{message}") if message
+          hdr << %( error="#{sanitize_quoted(code)}") if code
+          hdr << %( error_description="#{sanitize_quoted(message)}") if message
           headers['WWW-Authenticate'] = hdr
         end
         headers.each { |k, v| controller.response.set_header(k, v) }
@@ -66,6 +66,18 @@ module Verikloak
         else
           401
         end
+      end
+
+      # Sanitize a value for inclusion inside a quoted HTTP header parameter.
+      # Escapes quotes and backslashes, and strips CR/LF to prevent header injection.
+      # Why block replacement? String replacements like '\\1' are parsed as
+      # backreferences/escapes in Ruby, making precise escaping error‑prone.
+      # The block receives the literal match and we return it prefixed with a
+      # backslash, guaranteeing predictable escaping for both " and \\.
+      # @param val [String]
+      # @return [String]
+      def sanitize_quoted(val)
+        val.to_s.gsub(/(["\\])/) { |m| "\\#{m}" }.gsub(/[\r\n]/, ' ')
       end
     end
   end

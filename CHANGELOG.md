@@ -25,4 +25,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional Pundit integration: rescue `Pundit::NotAuthorizedError` to 403 JSON (`config.verikloak.rescue_pundit`).
 - Request logging tags (`:request_id`, `:sub`) via `config.verikloak.logger_tags`.
 - Configurable initializer: `discovery_url`, `audience`, `issuer`, `leeway`, `skip_paths`, `trust_forwarded_access_token`, `trusted_proxy_subnets`, `auto_include_controller`, `error_renderer`, and more.
-- Compatibility: Ruby >= 3.4, Rails 6.1–8.x; depends on `verikloak` 0.1.x.
+- Compatibility: Ruby >= 3.1, Rails 6.1–8.x; depends on `verikloak` >= 0.1.2, < 0.2.
