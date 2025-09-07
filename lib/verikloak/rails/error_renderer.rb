@@ -73,7 +73,8 @@ module Verikloak
       # @param val [String]
       # @return [String]
       def sanitize_quoted(val)
-        # Use block form to avoid backreference interpretation issues in replacement
+        # Use block form to avoid backreference interpretation issues: in Ruby, using a string replacement (e.g., '\\\1') can cause unexpected results
+        # because backslashes and digits are interpreted as backreferences or escape sequences. The block form ensures correct escaping.
         val.to_s.gsub(/(["\\])/) { |m| "\\#{m}" }.gsub(/[\r\n]/, ' ')
       end
     end
