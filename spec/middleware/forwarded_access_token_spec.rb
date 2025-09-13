@@ -87,6 +87,40 @@ RSpec.describe Verikloak::Rails::MiddlewareIntegration::ForwardedAccessToken do
     expect(result[:env]['HTTP_AUTHORIZATION']).to eq('Bearer token')
   end
 
+  it 'normalizes tokens with missing space after Bearer' do
+    result = call_mw({
+      'REMOTE_ADDR' => '203.0.113.10',
+      'HTTP_CUSTOM_TOKEN' => 'BearerXYZ',
+    }, trust: false, proxies: [], priority: %w[HTTP_CUSTOM_TOKEN HTTP_AUTHORIZATION])
+
+    # Inserts the missing space: 'BearerXYZ' => 'Bearer XYZ'
+    expect(result[:env]['HTTP_AUTHORIZATION']).to eq('Bearer XYZ')
+  end
+
+  it 'normalizes scheme case-insensitively' do
+    result = call_mw({
+      'REMOTE_ADDR' => '203.0.113.10',
+      'HTTP_CUSTOM_TOKEN' => 'bEaReR token',
+    }, trust: false, proxies: [], priority: %w[HTTP_CUSTOM_TOKEN HTTP_AUTHORIZATION])
+
+    expect(result[:env]['HTTP_AUTHORIZATION']).to eq('Bearer token')
+  end
+
+  it 'collapses multiple spaces/tabs after scheme to a single space' do
+    result1 = call_mw({
+      'REMOTE_ADDR' => '203.0.113.10',
+      'HTTP_CUSTOM_TOKEN' => "Bearer\t\ttoken",
+    }, trust: false, proxies: [], priority: %w[HTTP_CUSTOM_TOKEN HTTP_AUTHORIZATION])
+
+    result2 = call_mw({
+      'REMOTE_ADDR' => '203.0.113.10',
+      'HTTP_CUSTOM_TOKEN' => 'Bearer    token',
+    }, trust: false, proxies: [], priority: %w[HTTP_CUSTOM_TOKEN HTTP_AUTHORIZATION])
+
+    expect(result1[:env]['HTTP_AUTHORIZATION']).to eq('Bearer token')
+    expect(result2[:env]['HTTP_AUTHORIZATION']).to eq('Bearer token')
+  end
+
   it 'does not promote when IP addresses are invalid' do
     result = call_mw({
       'REMOTE_ADDR' => 'not-an-ip',
