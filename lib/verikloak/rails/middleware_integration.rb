@@ -12,6 +12,8 @@ module Verikloak
       # - Never overwrites an existing `Authorization` header
       # - Can derive the token from a prioritized list of headers
       class ForwardedAccessToken
+        BEARER_SCHEME = 'Bearer'
+        BEARER_SCHEME_LENGTH = BEARER_SCHEME.length
         # Initialize the middleware.
         #
         # @param app [#call] next Rack app
@@ -85,19 +87,19 @@ module Verikloak
         def ensure_bearer(token)
           s = token.to_s.strip
           # Case-insensitive 'Bearer' with spaces/tabs after
-          if s =~ /\ABearer[ \t]+/i
-            rest = s.sub(/\ABearer[ \t]+/i, '')
-            return "Bearer #{rest}"
+          if s =~ /\A#{BEARER_SCHEME}[ \t]+/i
+            rest = s.sub(/\A#{BEARER_SCHEME}[ \t]+/i, '')
+            return "#{BEARER_SCHEME} #{rest}"
           end
 
           # Case-insensitive 'Bearer' with no separator (e.g., 'BearerXYZ')
-          if s =~ /\ABearer(?![ \t])/i
-            rest = s[6..] || ''
-            return "Bearer #{rest}"
+          if s =~ /\A#{BEARER_SCHEME}(?![ \t])/i
+            rest = s[BEARER_SCHEME_LENGTH..] || ''
+            return "#{BEARER_SCHEME} #{rest}"
           end
 
           # No scheme present; add it
-          "Bearer #{s}"
+          "#{BEARER_SCHEME} #{s}"
         end
 
         # Whether the request originates from a trusted proxy subnet.
