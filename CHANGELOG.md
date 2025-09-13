@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.1] - 2025-09-13
+
+### Fixed
+- ForwardedAccessToken: fix `ensure_bearer` accepting malformed values (e.g., `BearerXYZ`).
+
+### Changed
+- Strengthen Bearer scheme normalization to always produce `Bearer <token>`.
+  - Detect scheme case-insensitively.
+  - Collapse tabs/multiple spaces after the scheme to a single space.
+  - Normalize missing-space form `BearerXYZ` to `Bearer XYZ`.
+- Add/update middleware specs to cover the above normalization.
+
 ## [0.1.0] - 2025-09-07
 
 ### Added
