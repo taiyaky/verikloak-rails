@@ -80,7 +80,7 @@ module Verikloak
       # @param val [String]
       # @return [String]
       def sanitize_quoted(val)
-        val.to_s.gsub(/(["\\])/) { |m| "\\#{m}" }.gsub(/[\r\n]/, ' ')
+        val.to_s.gsub(/(["\\])/) { |m| "\\#{m}" }.gsub(/[\r\n]+/, ' ')
       end
     end
   end

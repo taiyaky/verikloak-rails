@@ -113,7 +113,7 @@ module Verikloak
         tags = []
         if Verikloak::Rails.config.logger_tags.include?(:request_id)
           rid = request.request_id || request.headers['X-Request-Id']
-          rid = rid.to_s.gsub(/[\r\n]/, ' ')
+          rid = rid.to_s.gsub(/[\r\n]+/, ' ')
           tags << "req:#{rid}" unless rid.empty?
         end
         if Verikloak::Rails.config.logger_tags.include?(:sub)

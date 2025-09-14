@@ -212,8 +212,8 @@ Note: Always sanitize values placed into `WWW-Authenticate` header parameters to
 class CompactErrorRenderer
   private
   def sanitize_quoted(val)
-    # Escape quotes/backslashes and strip CR/LF
-    val.to_s.gsub(/(["\\])/) { |m| "\\#{m}" }.gsub(/[\r\n]/, ' ')
+    # Escape quotes/backslashes and strip CR/LF (collapse runs to a single space)
+    val.to_s.gsub(/(["\\])/) { |m| "\\#{m}" }.gsub(/[\r\n]+/, ' ')
   end
 end
 ```
