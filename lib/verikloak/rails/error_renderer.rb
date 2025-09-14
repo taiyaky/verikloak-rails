@@ -14,7 +14,10 @@ module Verikloak
         'jwks_fetch_failed' => 503,
         'jwks_parse_failed' => 503,
         'discovery_metadata_fetch_failed' => 503,
-        'discovery_metadata_invalid' => 503
+        'discovery_metadata_invalid' => 503,
+        # Additional infrastructure/configuration errors from core
+        'invalid_discovery_url' => 503,
+        'discovery_redirect_error' => 503
       }.freeze
 
       # Render an error as JSON, adding `WWW-Authenticate` when appropriate.
@@ -77,7 +80,7 @@ module Verikloak
       # @param val [String]
       # @return [String]
       def sanitize_quoted(val)
-        val.to_s.gsub(/(["\\])/) { |m| "\\#{m}" }.gsub(/[\r\n]/, ' ')
+        val.to_s.gsub(/(["\\])/) { |m| "\\#{m}" }.gsub(/[\r\n]+/, ' ')
       end
     end
   end

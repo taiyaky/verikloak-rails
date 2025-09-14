@@ -20,7 +20,6 @@ $LOAD_PATH.unshift File.expand_path('../lib', __dir__)
 
 # Common library requires for unit specs
 require 'verikloak/rails/error_renderer'
-require 'verikloak/rails/middleware_integration'
 
 RSpec.configure do |config|
   config.expect_with :rspec do |c|

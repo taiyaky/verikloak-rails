@@ -99,17 +99,28 @@ module Verikloak
       # @yieldreturn [Object] result of the block
       # @return [Object]
       def _verikloak_tag_logs(&)
-        tags = []
-        if Verikloak::Rails.config.logger_tags.include?(:request_id)
-          rid = request.request_id || request.headers['X-Request-Id']
-          tags << "req:#{rid}" if rid
-        end
-        tags << "sub:#{current_subject}" if Verikloak::Rails.config.logger_tags.include?(:sub) && current_subject
+        tags = _verikloak_build_log_tags
         if ::Rails.logger.respond_to?(:tagged) && tags.any?
           ::Rails.logger.tagged(*tags, &)
         else
           yield
         end
+      end
+
+      # Build log tags from request context with minimal branching and safe values.
+      # @return [Array<String>]
+      def _verikloak_build_log_tags
+        tags = []
+        if Verikloak::Rails.config.logger_tags.include?(:request_id)
+          rid = request.request_id || request.headers['X-Request-Id']
+          rid = rid.to_s.gsub(/[\r\n]+/, ' ')
+          tags << "req:#{rid}" unless rid.empty?
+        end
+        if Verikloak::Rails.config.logger_tags.include?(:sub)
+          sub = current_subject
+          tags << "sub:#{sub}" if sub
+        end
+        tags
       end
     end
   end

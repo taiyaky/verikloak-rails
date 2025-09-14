@@ -69,10 +69,6 @@ class TestApp < Rails::Application
   config.verikloak.discovery_url = 'https://example/.well-known/openid-configuration'
   config.verikloak.audience = 'rails-api'
   config.verikloak.leeway = 60
-  config.verikloak.trust_forwarded_access_token = true
-  config.verikloak.trusted_proxy_subnets = ['10.0.0.0/8']
-  # Allow custom token header to be prioritized for tests
-  config.verikloak.token_header_priority = %w[HTTP_X_CUSTOM_TOKEN HTTP_AUTHORIZATION]
   config.verikloak.render_500_json = true
 
   routes.append do
@@ -109,29 +105,7 @@ RSpec.describe 'Rails integration', type: :request do
     expect(body['error']).to eq('unauthorized')
   end
 
-  it 'promotes X-Forwarded-Access-Token from trusted proxy' do
-    get '/hello', {}, {
-      'REMOTE_ADDR' => '10.0.0.1',
-      'HTTP_X_FORWARDED_ACCESS_TOKEN' => 'valid'
-    }
-    expect(last_response.status).to eq(200)
-    expect(JSON.parse(last_response.body)['sub']).to eq('user-123')
-  end
-
-  it 'does not promote forwarded token from untrusted proxy' do
-    get '/hello', {}, {
-      'REMOTE_ADDR' => '203.0.113.10',
-      'HTTP_X_FORWARDED_ACCESS_TOKEN' => 'valid'
-    }
-    expect(last_response.status).to eq(401)
-  end
-
-  it 'accepts custom token header when prioritized' do
-    # Reconfigure to prefer a custom header over Authorization
-    TestApp.config.verikloak.token_header_priority = %w[HTTP_X_CUSTOM_TOKEN HTTP_AUTHORIZATION]
-    get '/hello', {}, { 'HTTP_X_CUSTOM_TOKEN' => 'valid' }
-    expect(last_response.status).to eq(200)
-  end
+  # BFF header handling moved to verikloak-bff; not covered here
 
   it 'propagates configured options to base middleware' do
     # Ensure middleware stack is built at least once
@@ -197,16 +171,5 @@ RSpec.describe 'Rails integration', type: :request do
     end
     expect(captured).not_to be_empty
     expect(captured.flatten).to include('req:req-xyz', 'sub:user-123')
-  end
-
-  it 'inserts middleware in correct order (behavioral)' do
-    # With only X-Forwarded-Access-Token and a trusted IP, the base middleware
-    # must see an Authorization header already set by ForwardedAccessToken.
-    get '/hello', {}, {
-      'REMOTE_ADDR' => '10.0.0.1',
-      'HTTP_X_FORWARDED_ACCESS_TOKEN' => 'valid'
-    }
-    expect(last_response.status).to eq(200)
-    expect(last_request.env['spec.base_middleware_seen_authorization']).to eq('Bearer valid')
   end
 end

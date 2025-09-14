@@ -8,7 +8,7 @@ module Verikloak
     # Hooks verikloak-rails into a Rails application lifecycle.
     #
     # - Applies configuration from `config.verikloak`
-    # - Inserts middleware (`ForwardedAccessToken`, then `Verikloak::Middleware`)
+    # - Inserts base `Verikloak::Middleware`
     # - Auto-includes controller concern when enabled
     class Railtie < ::Rails::Railtie
       config.verikloak = ActiveSupport::OrderedOptions.new
@@ -18,18 +18,13 @@ module Verikloak
       initializer 'verikloak.configure' do |app|
         Verikloak::Rails.configure do |c|
           rails_cfg = app.config.verikloak
-          %i[discovery_url audience issuer leeway skip_paths trust_forwarded_access_token
-             trusted_proxy_subnets logger_tags error_renderer auto_include_controller
-             render_500_json token_header_priority rescue_pundit].each do |key|
+          %i[discovery_url audience issuer leeway skip_paths
+             logger_tags error_renderer auto_include_controller
+             render_500_json rescue_pundit].each do |key|
             c.send("#{key}=", rails_cfg[key]) if rails_cfg.key?(key)
           end
         end
         app.middleware.insert_after ::Rails::Rack::Logger,
-                                    Verikloak::Rails::MiddlewareIntegration::ForwardedAccessToken,
-                                    trust_forwarded: Verikloak::Rails.config.trust_forwarded_access_token,
-                                    trusted_proxies: Verikloak::Rails.config.trusted_proxy_subnets,
-                                    header_priority: Verikloak::Rails.config.token_header_priority
-        app.middleware.insert_after Verikloak::Rails::MiddlewareIntegration::ForwardedAccessToken,
                                     ::Verikloak::Middleware,
                                     **Verikloak::Rails.config.middleware_options
       end

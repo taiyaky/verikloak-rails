@@ -84,7 +84,7 @@ RSpec.describe Verikloak::Rails::ErrorRenderer do
     # No newlines are allowed in header
     expect(hdr).not_to include("\r")
     expect(hdr).not_to include("\n")
-    # Quote is escaped inside the quoted-string value; CR/LF collapsed to spaces
-    expect(hdr).to include('error_description="bad\\"  desc"')
+    # Quote is escaped inside the quoted-string value; CR/LF collapsed to a single space
+    expect(hdr).to include('error_description="bad\\" desc"')
   end
 end
