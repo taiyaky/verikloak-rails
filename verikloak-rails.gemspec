@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.authors     = ['taiyaky']
 
   spec.summary     = 'Rails integration for Verikloak (Keycloak JWT via Rack middleware)'
-  spec.description = 'Rails integration for Verikloak: auto middleware, helpers, JSON errors, BFF header support.'
+  spec.description = 'Rails integration for Verikloak: auto middleware, helpers, and standardized JSON errors.'
 
   spec.homepage    = 'https://github.com/taiyaky/verikloak-rails'
   spec.license     = 'MIT'

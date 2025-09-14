@@ -82,48 +82,19 @@ end
 ```
 
 ## Middleware
-### Inserted Middlewares
+### Inserted Middleware
 | Component | Inserted after | Purpose |
 | --- | --- | --- |
-| `Verikloak::Rails::MiddlewareIntegration::ForwardedAccessToken` | `Rails::Rack::Logger` | Promote trusted `X-Forwarded-Access-Token` to `Authorization` and, when `Authorization` is empty, set it from a prioritized list of headers |
-| `Verikloak::Middleware` | `ForwardedAccessToken` | Validate Bearer JWT (OIDC discovery + JWKS), set `verikloak.user`/`verikloak.token`, and honor `skip_paths` |
+| `Verikloak::Middleware` | `Rails::Rack::Logger` | Validate Bearer JWT (OIDC discovery + JWKS), set `verikloak.user`/`verikloak.token`, and honor `skip_paths` |
 
-### Header Sources and Trust
-- Never overwrites an existing `Authorization` header.
-- Considers `X-Forwarded-Access-Token` only when both are true: `config.verikloak.trust_forwarded_access_token` is enabled and the direct peer IP is within `config.verikloak.trusted_proxy_subnets`.
-- `config.verikloak.token_header_priority` decides which env header can seed `Authorization` when it is empty. Note: `HTTP_AUTHORIZATION` is ignored as a source (it is the target header); include other headers if you need additional sources. Forwarded headers are skipped if not trusted.
-- Direct peer detection prefers `REMOTE_ADDR`, falling back to the nearest proxy in `X-Forwarded-For` when needed.
+### BFF Integration
+Support for BFF header handling (e.g., normalizing or enforcing `X-Forwarded-Access-Token`) now lives in a dedicated gem: verikloak-bff.
+Note: verikloak-bff's `HeaderGuard` never overwrites an existing `Authorization` header.
 
-### BFF Header Promotion
-When fronted by a BFF (e.g., oauth2-proxy) that injects `X-Forwarded-Access-Token`, you can promote that header to `Authorization` from trusted sources only.
+- Gem: https://github.com/taiyaky/verikloak-bff
+- Rails guide: `docs/rails.md` in that repository
 
-Enable promotion and restrict to trusted subnets:
-
-```ruby
-Rails.application.configure do
-  config.verikloak.trust_forwarded_access_token = true
-  config.verikloak.trusted_proxy_subnets = [
-    '10.0.0.0/8',
-    '192.168.0.0/16'
-  ]
-end
-```
-
-### Reordering or Disabling (advanced)
-You can adjust the stack in an initializer after the gem loads, for example:
-
-```ruby
-Rails.application.configure do
-  # Remove header-promotion middleware if you never use BFF tokens
-  config.middleware.delete Verikloak::Rails::MiddlewareIntegration::ForwardedAccessToken
-
-  # Or move the middleware earlier/later if your stack requires it
-  # config.middleware.insert_before SomeOtherMiddleware, Verikloak::Rails::MiddlewareIntegration::ForwardedAccessToken,
-  #   trust_forwarded: Verikloak::Rails.config.trust_forwarded_access_token,
-  #   trusted_proxies: Verikloak::Rails.config.trusted_proxy_subnets,
-  #   header_priority: Verikloak::Rails.config.token_header_priority
-end
-```
+Use verikloak-bff alongside this gem when you front Rails with a BFF/proxy such as oauth2-proxy and need to enforce trusted forwarding and header consistency.
 
 ## Configuration (initializer)
 ### Keys
@@ -136,13 +107,10 @@ Keys under `config.verikloak`:
 | `issuer` | String | Expected `iss` | `nil` |
 | `leeway` | Integer | Clock skew allowance (seconds) | `60` |
 | `skip_paths` | Array<String> | Paths to skip verification | `['/up','/health','/rails/health']` |
-| `trust_forwarded_access_token` | Boolean | Trust `X-Forwarded-Access-Token` from trusted proxies | `false` |
-| `trusted_proxy_subnets` | Array<String or IPAddr> | Subnets allowed to be treated as trusted | `[]` (treat all as trusted; set explicit ranges in production) |
 | `logger_tags` | Array<Symbol> | Tags to add to Rails logs. Supports `:request_id`, `:sub` | `[:request_id, :sub]` |
 | `error_renderer` | Object responding to `render(controller, error)` | Override error rendering | built-in JSON renderer |
 | `auto_include_controller` | Boolean | Auto-include controller concern | `true` |
 | `render_500_json` | Boolean | Rescue `StandardError` and render JSON 500 | `false` |
-| `token_header_priority` | Array<String> | Env header priority to source bearer token | `['HTTP_X_FORWARDED_ACCESS_TOKEN','HTTP_AUTHORIZATION']` |
 | `rescue_pundit` | Boolean | Rescue `Pundit::NotAuthorizedError` to 403 JSON when Pundit is present | `true` |
 
 Environment variable examples are in the generated initializer.
@@ -150,7 +118,6 @@ Environment variable examples are in the generated initializer.
 ### Minimum Setup
 - Required: set `discovery_url` to your provider’s OIDC discovery document URL.
 - Recommended: set `audience` (expected `aud`), and `issuer` when known.
-- Optional: enable BFF header promotion only with explicit `trusted_proxy_subnets`.
 
 ```ruby
 # config/initializers/verikloak.rb
@@ -160,15 +127,12 @@ Rails.application.configure do
   # Optional but recommended when you know it
   # config.verikloak.issuer        = 'https://idp.example.com/realms/myrealm'
 
-  # Leave header promotion off unless you run a trusted BFF/proxy
-  # config.verikloak.trust_forwarded_access_token = false
-  # config.verikloak.trusted_proxy_subnets = ['10.0.0.0/8']
+  # For BFF/proxy header handling, see verikloak-bff
 end
 ```
 
 Notes:
-- For array-like values (`audience`, `skip_paths`, `trusted_proxy_subnets`, `token_header_priority`), prefer defining Ruby arrays in the initializer. If passing via ENV, use comma-separated strings and parse in the initializer.
-- Header sourcing/trust behavior is described in “Middleware → Header Sources and Trust”.
+- For array-like values (`audience`, `skip_paths`), prefer defining Ruby arrays in the initializer. If passing via ENV, use comma-separated strings and parse in the initializer.
 
 ### Full Example (selected options)
 ```ruby
@@ -179,16 +143,8 @@ Rails.application.configure do
   config.verikloak.leeway        = Integer(ENV.fetch('VERIKLOAK_LEEWAY', '60'))
   config.verikloak.skip_paths    = %w[/up /health /rails/health]
 
-  # Enable BFF header promotion only from trusted subnets
-  config.verikloak.trust_forwarded_access_token = ENV.fetch('VERIKLOAK_TRUST_FWD_TOKEN', 'false') == 'true'
-  config.verikloak.trusted_proxy_subnets = [
-    '10.0.0.0/8', # internal LB
-    # '192.168.0.0/16'
-  ]
-
   config.verikloak.logger_tags = %i[request_id sub]
   config.verikloak.render_500_json = ENV.fetch('VERIKLOAK_RENDER_500', 'false') == 'true'
-  config.verikloak.token_header_priority = %w[HTTP_X_FORWARDED_ACCESS_TOKEN HTTP_AUTHORIZATION]
 
   # Optional Pundit rescue (403 JSON)
   config.verikloak.rescue_pundit = ENV.fetch('VERIKLOAK_RESCUE_PUNDIT', 'true') == 'true'
@@ -203,14 +159,9 @@ end
 | `audience` | `VERIKLOAK_AUDIENCE` |
 | `issuer` | `VERIKLOAK_ISSUER` |
 | `leeway` | `VERIKLOAK_LEEWAY` |
-| `trust_forwarded_access_token` | `VERIKLOAK_TRUST_FWD_TOKEN` |
 | `render_500_json` | `VERIKLOAK_RENDER_500` |
 | `rescue_pundit` | `VERIKLOAK_RESCUE_PUNDIT` |
 
-### Notes
-- Default for `trust_forwarded_access_token` is secure (`false`). Set `trusted_proxy_subnets` before enabling.
-- The middleware never overwrites an existing `Authorization` header.
-- If `trusted_proxy_subnets` is empty, all peers are treated as trusted. In production, set explicit subnets or keep `trust_forwarded_access_token` disabled.
 
 ## Errors
 This gem standardizes JSON error responses and HTTP statuses. See [ERRORS.md](ERRORS.md) for details and examples.
@@ -220,7 +171,7 @@ This gem standardizes JSON error responses and HTTP statuses. See [ERRORS.md](ER
 | --- | --- | --- | --- | --- |
 | 401 Unauthorized | `invalid_token`, `unauthorized` | Missing/invalid Bearer token; failed signature/expiry/issuer/audience checks | `WWW-Authenticate: Bearer` with optional `error` and `error_description` | `{ "error": "invalid_token", "message": "token expired" }` |
 | 403 Forbidden | `forbidden` | Audience check failure via `with_required_audience!`; optionally `Pundit::NotAuthorizedError` when rescue is enabled | — | `{ "error": "forbidden", "message": "Required audience not satisfied" }` |
-| 503 Service Unavailable | `jwks_fetch_failed`, `jwks_parse_failed`, `discovery_metadata_fetch_failed`, `discovery_metadata_invalid` | Upstream metadata/JWKS issues | — | `{ "error": "jwks_fetch_failed", "message": "..." }` |
+| 503 Service Unavailable | `jwks_fetch_failed`, `jwks_parse_failed`, `discovery_metadata_fetch_failed`, `discovery_metadata_invalid`, `invalid_discovery_url`, `discovery_redirect_error` | Upstream metadata/JWKS issues | — | `{ "error": "jwks_fetch_failed", "message": "..." }` |
 
 ### Customize
 Customize rendering by assigning `config.verikloak.error_renderer`.
@@ -338,5 +289,6 @@ See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## References
 - verikloak-rails (this gem): https://rubygems.org/gems/verikloak-rails
+- verikloak-bff: https://rubygems.org/gems/verikloak-bff
 - Verikloak (base gem): https://github.com/taiyaky/verikloak
 - Verikloak on RubyGems: https://rubygems.org/gems/verikloak

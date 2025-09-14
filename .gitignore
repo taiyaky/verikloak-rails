@@ -28,3 +28,6 @@ rspec_failed.txt
 # Ignore OS artifacts
 .DS_Store
 Thumbs.db
+
+# Ignore external comparison clones
+external/
