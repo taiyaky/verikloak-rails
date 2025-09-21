@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Nothing yet.
+
+## [0.2.2] - 2025-09-21
+
 ### Added
 - Automatically insert `Verikloak::Bff::HeaderGuard` when the optional gem is available, with configuration toggles and ordering controls.
 - Configuration knobs for positioning the base `Verikloak::Middleware` within the Rack stack.
