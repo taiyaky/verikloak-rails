@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'stringio'
+
+require 'active_support/tagged_logging'
 
 # Ensure the stubbed base middleware is found before the Railtie requires it.
 $LOAD_PATH.unshift File.expand_path('../stubs', __dir__)
@@ -172,28 +175,11 @@ RSpec.describe 'Rails integration', type: :request do
   end
 
   it 'renders 500 JSON when render_500_json is enabled and StandardError occurs' do
-    logger = Class.new do
-      attr_reader :errors
-
-      def initialize
-        @errors = []
-      end
-
-      %i[debug info warn fatal unknown].each { |m| define_method(m) { |_msg = nil| } }
-
-      def error(msg = nil)
-        @errors << msg
-      end
-
-      def level=(val); @level = val; end
-
-      def tagged(*_tags)
-        yield
-      end
-    end.new
+    io = StringIO.new
+    tagged_logger = ActiveSupport::TaggedLogging.new(Logger.new(io))
 
     previous = Rails.logger
-    Rails.logger = logger
+    Rails.logger = tagged_logger
     begin
       get '/boom', {}, { 'HTTP_AUTHORIZATION' => 'Bearer valid' }
     ensure
@@ -202,7 +188,8 @@ RSpec.describe 'Rails integration', type: :request do
     expect(last_response.status).to eq(500)
     body = JSON.parse(last_response.body)
     expect(body['error']).to eq('internal_server_error')
-    expect(logger.errors.join("\n")).to include('StandardError', 'boom')
+    io.rewind
+    expect(io.string).to include('StandardError', 'boom')
   end
 
   it 'rescues Pundit::NotAuthorizedError to 403 JSON' do
