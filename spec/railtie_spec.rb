@@ -88,6 +88,22 @@ RSpec.describe Verikloak::Rails::Railtie do
     expect(app.middleware.operations).to include([:before, Verikloak::Middleware, guard, [], {}])
   end
 
+  it 'inserts the BFF header guard before a configured middleware when requested' do
+    app.config.verikloak.bff_header_guard_insert_before = :another_guard
+    guard = Class.new
+    stub_const('Verikloak::Bff::HeaderGuard', guard)
+    run_initializer
+    expect(app.middleware.operations).to include([:before, :another_guard, guard, [], {}])
+  end
+
+  it 'inserts the BFF header guard after a configured middleware when requested' do
+    app.config.verikloak.bff_header_guard_insert_after = :after_target
+    guard = Class.new
+    stub_const('Verikloak::Bff::HeaderGuard', guard)
+    run_initializer
+    expect(app.middleware.operations).to include([:after, :after_target, guard, [], {}])
+  end
+
   it 'skips inserting the BFF header guard when disabled' do
     app.config.verikloak.auto_insert_bff_header_guard = false
     guard = Class.new

@@ -108,6 +108,10 @@ end
 RSpec.describe 'Rails integration', type: :request do
   include Rack::Test::Methods
 
+  before do
+    Verikloak::Rails.instance_variable_set(:@config, nil)
+  end
+
   def app
     @app ||= begin
       TestApp.initialize! unless TestApp.initialized?
