@@ -43,7 +43,7 @@ class HelloController < ActionController::Base
 
   def aud_ng
     with_required_audience!('missing-aud')
-    render json: { ok: true } unless performed?
+    render json: { ok: true }
   end
 
   def boom
@@ -130,10 +130,37 @@ RSpec.describe 'Rails integration', type: :request do
   end
 
   it 'renders 500 JSON when render_500_json is enabled and StandardError occurs' do
-    get '/boom', {}, { 'HTTP_AUTHORIZATION' => 'Bearer valid' }
+    logger = Class.new do
+      attr_reader :errors
+
+      def initialize
+        @errors = []
+      end
+
+      %i[debug info warn fatal unknown].each { |m| define_method(m) { |_msg = nil| } }
+
+      def error(msg = nil)
+        @errors << msg
+      end
+
+      def level=(val); @level = val; end
+
+      def tagged(*_tags)
+        yield
+      end
+    end.new
+
+    previous = Rails.logger
+    Rails.logger = logger
+    begin
+      get '/boom', {}, { 'HTTP_AUTHORIZATION' => 'Bearer valid' }
+    ensure
+      Rails.logger = previous
+    end
     expect(last_response.status).to eq(500)
     body = JSON.parse(last_response.body)
     expect(body['error']).to eq('internal_server_error')
+    expect(logger.errors.join("\n")).to include('StandardError', 'boom')
   end
 
   it 'rescues Pundit::NotAuthorizedError to 403 JSON' do
@@ -165,11 +192,12 @@ RSpec.describe 'Rails integration', type: :request do
     app # ensure initialized before swapping logger
     Rails.logger = stub
     begin
+      allow_any_instance_of(HelloController).to receive(:current_subject).and_return("user-123\nmalicious\tvalue")
       get '/hello', {}, { 'HTTP_AUTHORIZATION' => 'Bearer valid', 'HTTP_X_REQUEST_ID' => 'req-xyz' }
     ensure
       Rails.logger = previous
     end
     expect(captured).not_to be_empty
-    expect(captured.flatten).to include('req:req-xyz', 'sub:user-123')
+    expect(captured.flatten).to include('req:req-xyz', 'sub:user-123 malicious value')
   end
 end

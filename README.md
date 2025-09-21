@@ -40,7 +40,7 @@ Then configure `config/initializers/verikloak.rb`.
 | `current_user_claims` | Verified JWT claims (string keys) | `Hash` or `nil` | — |
 | `current_subject` | Convenience accessor for `sub` claim | `String` or `nil` | — |
 | `current_token` | Raw Bearer token from the request | `String` or `nil` | — |
-| `with_required_audience!(*aud)` | Enforce that `aud` includes all required entries | `void` | Renders standardized 403 JSON when requirements are not met |
+| `with_required_audience!(*aud)` | Enforce that `aud` includes all required entries | `void` | Raises `Verikloak::Error('forbidden')` so the concern renders standardized 403 JSON and halts the action |
 
 ### Data Sources
 | Value | Rack env keys | Fallback (RequestStore) | Notes |
@@ -110,7 +110,7 @@ Keys under `config.verikloak`:
 | `logger_tags` | Array<Symbol> | Tags to add to Rails logs. Supports `:request_id`, `:sub` | `[:request_id, :sub]` |
 | `error_renderer` | Object responding to `render(controller, error)` | Override error rendering | built-in JSON renderer |
 | `auto_include_controller` | Boolean | Auto-include controller concern | `true` |
-| `render_500_json` | Boolean | Rescue `StandardError` and render JSON 500 | `false` |
+| `render_500_json` | Boolean | Rescue `StandardError`, log the exception, and render JSON 500 | `false` |
 | `rescue_pundit` | Boolean | Rescue `Pundit::NotAuthorizedError` to 403 JSON when Pundit is present | `true` |
 
 Environment variable examples are in the generated initializer.
