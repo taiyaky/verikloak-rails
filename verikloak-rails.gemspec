@@ -20,7 +20,7 @@ Gem::Specification.new do |spec|
 
   # Runtime dependencies
   spec.add_dependency 'rails', '>= 6.1', '< 9.0'
-  spec.add_dependency 'verikloak', '>= 0.1.2', '< 0.2'
+  spec.add_dependency 'verikloak', '>= 0.1.5', '< 1.0.0'
 
   # Metadata for RubyGems
   spec.metadata['source_code_uri'] = spec.homepage

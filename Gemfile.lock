@@ -3,7 +3,7 @@ PATH
   specs:
     verikloak-rails (0.2.2)
       rails (>= 6.1, < 9.0)
-      verikloak (>= 0.1.2, < 0.2)
+      verikloak (>= 0.1.5, < 1.0.0)
 
 GEM
   remote: https://rubygems.org/
