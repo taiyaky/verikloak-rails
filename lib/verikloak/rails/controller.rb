@@ -85,23 +85,14 @@ module Verikloak
       #
       # @param required [Array<String>] one or more audiences to require
       # @return [void]
+      # @raise [Verikloak::Error] when the required audience is missing
       # @example
       #   with_required_audience!('my-api', 'payments')
       def with_required_audience!(*required)
         aud = Array(current_user_claims&.dig('aud'))
         return if required.flatten.all? { |r| aud.include?(r) }
 
-        error = begin
-          ::Verikloak::Error.new('forbidden', 'Required audience not satisfied')
-        rescue StandardError
-          nil
-        end
-        if error
-          raise error
-        else
-          render json: { error: 'forbidden', message: 'Required audience not satisfied' }, status: :forbidden
-          return
-        end
+        raise ::Verikloak::Error.new('forbidden', 'Required audience not satisfied')
       end
 
       private
@@ -145,12 +136,8 @@ module Verikloak
       # @param exception [Exception]
       # @return [void]
       def _verikloak_log_internal_error(exception)
-        target_logger = if respond_to?(:logger) && (logger_obj = logger)
-                          logger_obj
-                        elsif defined?(::Rails) && ::Rails.respond_to?(:logger)
-                          ::Rails.logger
-                        end
-        return unless target_logger
+        target_logger = _verikloak_base_logger
+        return unless target_logger.respond_to?(:error)
 
         target_logger.error("[Verikloak] #{exception.class}: #{exception.message}")
         backtrace = exception.backtrace
@@ -158,6 +145,24 @@ module Verikloak
       rescue StandardError
         # Never allow logging failures to interfere with request handling.
         nil
+      end
+
+      # Locate the innermost logger that responds to `error`.
+      # @return [Object, nil]
+      def _verikloak_base_logger
+        root_logger = if defined?(::Rails) && ::Rails.respond_to?(:logger)
+                        ::Rails.logger
+                      elsif respond_to?(:logger)
+                        logger
+                      end
+        current = root_logger
+        while current.respond_to?(:logger)
+          next_logger = current.logger
+          break if next_logger.nil? || next_logger.equal?(current)
+
+          current = next_logger
+        end
+        current
       end
     end
   end
