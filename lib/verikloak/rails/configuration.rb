@@ -35,11 +35,16 @@ module Verikloak
     # @!attribute [rw] render_500_json
     #   Rescue StandardError and render a JSON 500 response.
     #   @return [Boolean]
+    # @!attribute [rw] rescue_pundit
+    #   Rescue `Pundit::NotAuthorizedError` and render JSON 403 responses.
+    #   @return [Boolean]
     class Configuration
       attr_accessor :discovery_url, :audience, :issuer, :leeway, :skip_paths,
                     :logger_tags, :error_renderer, :auto_include_controller,
                     :render_500_json, :rescue_pundit
 
+      # Initialize configuration with sensible defaults for Rails apps.
+      # @return [void]
       def initialize
         @discovery_url = nil
         @audience      = nil

@@ -16,7 +16,8 @@ module Verikloak
         before_action :authenticate_user!
         # Register generic error handler first so specific handlers take precedence.
         if Verikloak::Rails.config.render_500_json
-          rescue_from StandardError do |_e|
+          rescue_from StandardError do |e|
+            _verikloak_log_internal_error(e)
             render json: { error: 'internal_server_error', message: 'An unexpected error occurred' },
                    status: :internal_server_error
           end
@@ -84,13 +85,14 @@ module Verikloak
       #
       # @param required [Array<String>] one or more audiences to require
       # @return [void]
+      # @raise [Verikloak::Error] when the required audience is missing
       # @example
       #   with_required_audience!('my-api', 'payments')
       def with_required_audience!(*required)
         aud = Array(current_user_claims&.dig('aud'))
         return if required.flatten.all? { |r| aud.include?(r) }
 
-        render json: { error: 'forbidden', message: 'Required audience not satisfied' }, status: :forbidden
+        raise ::Verikloak::Error.new('forbidden', 'Required audience not satisfied')
       end
 
       private
@@ -118,9 +120,49 @@ module Verikloak
         end
         if Verikloak::Rails.config.logger_tags.include?(:sub)
           sub = current_subject
-          tags << "sub:#{sub}" if sub
+          if sub
+            sanitized = sub.to_s.gsub(/[[:cntrl:]]+/, ' ').strip
+            tags << "sub:#{sanitized}" unless sanitized.empty?
+          end
         end
         tags
+      end
+
+      # Write StandardError details to the controller or Rails logger when
+      # rendering the generic 500 JSON response. Logging ensures the
+      # underlying failure is still visible to operators even though the
+      # response body is static.
+      #
+      # @param exception [Exception]
+      # @return [void]
+      def _verikloak_log_internal_error(exception)
+        target_logger = _verikloak_base_logger
+        return unless target_logger.respond_to?(:error)
+
+        target_logger.error("[Verikloak] #{exception.class}: #{exception.message}")
+        backtrace = exception.backtrace
+        target_logger.error(backtrace.join("\n")) if backtrace&.any?
+      rescue StandardError
+        # Never allow logging failures to interfere with request handling.
+        nil
+      end
+
+      # Locate the innermost logger that responds to `error`.
+      # @return [Object, nil]
+      def _verikloak_base_logger
+        root_logger = if defined?(::Rails) && ::Rails.respond_to?(:logger)
+                        ::Rails.logger
+                      elsif respond_to?(:logger)
+                        logger
+                      end
+        current = root_logger
+        while current.respond_to?(:logger)
+          next_logger = current.logger
+          break if next_logger.nil? || next_logger.equal?(current)
+
+          current = next_logger
+        end
+        current
       end
     end
   end
