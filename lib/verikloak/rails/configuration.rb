@@ -38,10 +38,28 @@ module Verikloak
     # @!attribute [rw] rescue_pundit
     #   Rescue `Pundit::NotAuthorizedError` and render JSON 403 responses.
     #   @return [Boolean]
+    # @!attribute [rw] middleware_insert_before
+    #   Rack middleware to insert `Verikloak::Middleware` before.
+    #   @return [Object, String, Symbol, nil]
+    # @!attribute [rw] middleware_insert_after
+    #   Rack middleware to insert `Verikloak::Middleware` after.
+    #   @return [Object, String, Symbol, nil]
+    # @!attribute [rw] auto_insert_bff_header_guard
+    #   Auto-insert `Verikloak::Bff::HeaderGuard` when available.
+    #   @return [Boolean]
+    # @!attribute [rw] bff_header_guard_insert_before
+    #   Rack middleware to insert the header guard before.
+    #   @return [Object, String, Symbol, nil]
+    # @!attribute [rw] bff_header_guard_insert_after
+    #   Rack middleware to insert the header guard after.
+    #   @return [Object, String, Symbol, nil]
     class Configuration
       attr_accessor :discovery_url, :audience, :issuer, :leeway, :skip_paths,
                     :logger_tags, :error_renderer, :auto_include_controller,
-                    :render_500_json, :rescue_pundit
+                    :render_500_json, :rescue_pundit,
+                    :middleware_insert_before, :middleware_insert_after,
+                    :auto_insert_bff_header_guard,
+                    :bff_header_guard_insert_before, :bff_header_guard_insert_after
 
       # Initialize configuration with sensible defaults for Rails apps.
       # @return [void]
@@ -56,6 +74,11 @@ module Verikloak
         @auto_include_controller = true
         @render_500_json = false
         @rescue_pundit = true
+        @middleware_insert_before = nil
+        @middleware_insert_after = nil
+        @auto_insert_bff_header_guard = true
+        @bff_header_guard_insert_before = nil
+        @bff_header_guard_insert_after = nil
       end
 
       # Options forwarded to the base Verikloak Rack middleware.

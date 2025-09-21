@@ -27,6 +27,31 @@ unless defined?(::Pundit::NotAuthorizedError)
   class ::Pundit::NotAuthorizedError < StandardError; end
 end
 
+# Define a minimal BFF header guard to exercise auto-insertion behavior.
+module ::Verikloak; end unless defined?(::Verikloak)
+module ::Verikloak::Bff; end unless defined?(::Verikloak::Bff)
+unless defined?(::Verikloak::Bff::HeaderGuard)
+  class ::Verikloak::Bff::HeaderGuard
+    class << self
+      attr_accessor :last_env
+    end
+
+    def initialize(app)
+      @app = app
+    end
+
+    def call(env)
+      env['spec.header_guard_invoked'] = true
+      forwarded = env['HTTP_X_FORWARDED_ACCESS_TOKEN'].to_s.strip
+      if env['HTTP_AUTHORIZATION'].to_s.empty? && !forwarded.empty?
+        env['HTTP_AUTHORIZATION'] = "Bearer #{forwarded}"
+      end
+      self.class.last_env = env
+      @app.call(env)
+    end
+  end
+end
+
 require 'verikloak/rails'
 
 class HelloController < ActionController::Base
@@ -115,6 +140,19 @@ RSpec.describe 'Rails integration', type: :request do
     expect(opts[:audience]).to eq('rails-api')
     expect(opts[:leeway]).to eq(60)
     expect(opts[:skip_paths]).to include('/up')
+  end
+
+  it 'promotes forwarded tokens via the auto-inserted header guard' do
+    get '/hello', {}, { 'HTTP_X_FORWARDED_ACCESS_TOKEN' => 'valid' }
+    expect(last_response.status).to eq(200)
+    expect(last_request.env['spec.header_guard_invoked']).to eq(true)
+    expect(last_request.env['spec.base_middleware_seen_authorization']).to eq('Bearer valid')
+  end
+
+  it 'does not override Authorization when header guard runs' do
+    get '/hello', {}, { 'HTTP_AUTHORIZATION' => 'Bearer valid', 'HTTP_X_FORWARDED_ACCESS_TOKEN' => 'malicious' }
+    expect(last_response.status).to eq(200)
+    expect(last_request.env['spec.base_middleware_seen_authorization']).to eq('Bearer valid')
   end
 
   it 'enforces audience via with_required_audience! (success)' do
