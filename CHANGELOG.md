@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.2] - 2025-09-21
+
+### Added
+- Automatically insert `Verikloak::Bff::HeaderGuard` when the optional gem is available, with configuration toggles and ordering controls.
+- Configuration knobs for positioning the base `Verikloak::Middleware` within the Rack stack.
+
+### Changed
+- Disable the built-in Pundit rescue when `verikloak-pundit` is loaded unless explicitly configured.
+
+### Documentation
+- Note related gems in the installer output and README, including new configuration options for middleware ordering and BFF auto-insertion.
+
+---
+
 ## [0.2.1] - 2025-09-21
 
 ### Changed

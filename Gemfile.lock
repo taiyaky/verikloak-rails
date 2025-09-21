@@ -1,9 +1,9 @@
 PATH
   remote: .
   specs:
-    verikloak-rails (0.2.1)
+    verikloak-rails (0.2.2)
       rails (>= 6.1, < 9.0)
-      verikloak (>= 0.1.2, < 0.2)
+      verikloak (>= 0.1.5, < 1.0.0)
 
 GEM
   remote: https://rubygems.org/
@@ -102,6 +102,8 @@ GEM
       logger
     faraday-net_http (3.4.1)
       net-http (>= 0.5.0)
+    faraday-retry (2.3.2)
+      faraday (~> 2.0)
     globalid (1.2.1)
       activesupport (>= 6.1)
     i18n (1.14.7)
@@ -141,6 +143,8 @@ GEM
       net-protocol
     nio4r (2.7.4)
     nokogiri (1.18.9-aarch64-linux-musl)
+      racc (~> 1.4)
+    nokogiri (1.18.9-arm64-darwin)
       racc (~> 1.4)
     nokogiri (1.18.9-x86_64-linux-musl)
       racc (~> 1.4)
@@ -254,10 +258,11 @@ GEM
     unicode-emoji (4.0.4)
     uri (1.0.3)
     useragent (0.16.11)
-    verikloak (0.1.2)
+    verikloak (0.1.5)
       faraday (>= 2.0, < 3.0)
+      faraday-retry (>= 2.0, < 3.0)
       json (~> 2.6)
-      jwt (~> 2.7)
+      jwt (>= 2.7, < 4.0)
     websocket-driver (0.8.0)
       base64
       websocket-extensions (>= 0.1.0)
@@ -266,6 +271,7 @@ GEM
 
 PLATFORMS
   aarch64-linux-musl
+  arm64-darwin-24
   x86_64-linux-musl
 
 DEPENDENCIES

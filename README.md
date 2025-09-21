@@ -83,9 +83,10 @@ end
 
 ## Middleware
 ### Inserted Middleware
-| Component | Inserted after | Purpose |
+| Component | Inserted relative to | Purpose |
 | --- | --- | --- |
-| `Verikloak::Middleware` | `Rails::Rack::Logger` | Validate Bearer JWT (OIDC discovery + JWKS), set `verikloak.user`/`verikloak.token`, and honor `skip_paths` |
+| `Verikloak::Bff::HeaderGuard` (optional) | Before `Verikloak::Middleware` by default when the gem is present | Normalize or enforce trusted proxy headers such as `X-Forwarded-Access-Token` |
+| `Verikloak::Middleware` | After `Rails::Rack::Logger` by default (configurable) | Validate Bearer JWT (OIDC discovery + JWKS), set `verikloak.user`/`verikloak.token`, and honor `skip_paths` |
 
 ### BFF Integration
 Support for BFF header handling (e.g., normalizing or enforcing `X-Forwarded-Access-Token`) now lives in a dedicated gem: verikloak-bff.
@@ -93,6 +94,8 @@ Note: verikloak-bff's `HeaderGuard` never overwrites an existing `Authorization`
 
 - Gem: https://github.com/taiyaky/verikloak-bff
 - Rails guide: `docs/rails.md` in that repository
+
+When `verikloak-bff` is on the load path, `verikloak-rails` automatically inserts `Verikloak::Bff::HeaderGuard` before the base middleware so forwarded headers are normalized before verification. Control this via `config.verikloak.auto_insert_bff_header_guard` and the `bff_header_guard_insert_before/after` knobs.
 
 Use verikloak-bff alongside this gem when you front Rails with a BFF/proxy such as oauth2-proxy and need to enforce trusted forwarding and header consistency.
 
@@ -111,7 +114,12 @@ Keys under `config.verikloak`:
 | `error_renderer` | Object responding to `render(controller, error)` | Override error rendering | built-in JSON renderer |
 | `auto_include_controller` | Boolean | Auto-include controller concern | `true` |
 | `render_500_json` | Boolean | Rescue `StandardError`, log the exception, and render JSON 500 | `false` |
-| `rescue_pundit` | Boolean | Rescue `Pundit::NotAuthorizedError` to 403 JSON when Pundit is present | `true` |
+| `rescue_pundit` | Boolean | Rescue `Pundit::NotAuthorizedError` to 403 JSON when Pundit is present (auto-disabled when `verikloak-pundit` is loaded) | `true` |
+| `middleware_insert_before` | Object/String/Symbol | Insert `Verikloak::Middleware` before this Rack middleware | `nil` |
+| `middleware_insert_after` | Object/String/Symbol | Insert `Verikloak::Middleware` after this Rack middleware (`Rails::Rack::Logger` when `nil`) | `nil` |
+| `auto_insert_bff_header_guard` | Boolean | Auto insert `Verikloak::Bff::HeaderGuard` when the gem is present | `true` |
+| `bff_header_guard_insert_before` | Object/String/Symbol | Insert the header guard before this middleware (`Verikloak::Middleware` when `nil`) | `nil` |
+| `bff_header_guard_insert_after` | Object/String/Symbol | Insert the header guard after this middleware | `nil` |
 
 Environment variable examples are in the generated initializer.
 
@@ -127,7 +135,10 @@ Rails.application.configure do
   # Optional but recommended when you know it
   # config.verikloak.issuer        = 'https://idp.example.com/realms/myrealm'
 
-  # For BFF/proxy header handling, see verikloak-bff
+  # For BFF/proxy header handling, see verikloak-bff (auto inserted when present)
+  # To customize ordering:
+  # config.verikloak.middleware_insert_before = Rack::Attack
+  # config.verikloak.auto_insert_bff_header_guard = false
 end
 ```
 
@@ -221,8 +232,10 @@ end
 ## Optional Pundit Rescue
 If the `pundit` gem is present, `Pundit::NotAuthorizedError` is rescued to a standardized 403 JSON. This is a lightweight convenience only; deeper Pundit integration (policies, helpers) is out of scope and can live in a separate plugin.
 
+When the optional [`verikloak-pundit`](https://github.com/taiyaky/verikloak-pundit) gem is loaded, the built-in rescue is automatically disabled to avoid double-handling errors. Explicitly set `config.verikloak.rescue_pundit` if you prefer different behavior.
+
 ### Toggle
-Toggle with `config.verikloak.rescue_pundit` (default: true). Environment example:
+Toggle with `config.verikloak.rescue_pundit` (default: true unless overridden by `verikloak-pundit`). Environment example:
 
 ```ruby
 # config/initializers/verikloak.rb

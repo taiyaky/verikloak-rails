@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'stringio'
+
+require 'active_support/tagged_logging'
 
 # Ensure the stubbed base middleware is found before the Railtie requires it.
 $LOAD_PATH.unshift File.expand_path('../stubs', __dir__)
@@ -25,6 +28,31 @@ end
 module ::Pundit; end unless defined?(::Pundit)
 unless defined?(::Pundit::NotAuthorizedError)
   class ::Pundit::NotAuthorizedError < StandardError; end
+end
+
+# Define a minimal BFF header guard to exercise auto-insertion behavior.
+module ::Verikloak; end unless defined?(::Verikloak)
+module ::Verikloak::Bff; end unless defined?(::Verikloak::Bff)
+unless defined?(::Verikloak::Bff::HeaderGuard)
+  class ::Verikloak::Bff::HeaderGuard
+    class << self
+      attr_accessor :last_env
+    end
+
+    def initialize(app)
+      @app = app
+    end
+
+    def call(env)
+      env['spec.header_guard_invoked'] = true
+      forwarded = env['HTTP_X_FORWARDED_ACCESS_TOKEN'].to_s.strip
+      if env['HTTP_AUTHORIZATION'].to_s.empty? && !forwarded.empty?
+        env['HTTP_AUTHORIZATION'] = "Bearer #{forwarded}"
+      end
+      self.class.last_env = env
+      @app.call(env)
+    end
+  end
 end
 
 require 'verikloak/rails'
@@ -83,6 +111,10 @@ end
 RSpec.describe 'Rails integration', type: :request do
   include Rack::Test::Methods
 
+  before do
+    Verikloak::Rails.instance_variable_set(:@config, nil)
+  end
+
   def app
     @app ||= begin
       TestApp.initialize! unless TestApp.initialized?
@@ -117,6 +149,19 @@ RSpec.describe 'Rails integration', type: :request do
     expect(opts[:skip_paths]).to include('/up')
   end
 
+  it 'promotes forwarded tokens via the auto-inserted header guard' do
+    get '/hello', {}, { 'HTTP_X_FORWARDED_ACCESS_TOKEN' => 'valid' }
+    expect(last_response.status).to eq(200)
+    expect(last_request.env['spec.header_guard_invoked']).to eq(true)
+    expect(last_request.env['spec.base_middleware_seen_authorization']).to eq('Bearer valid')
+  end
+
+  it 'does not override Authorization when header guard runs' do
+    get '/hello', {}, { 'HTTP_AUTHORIZATION' => 'Bearer valid', 'HTTP_X_FORWARDED_ACCESS_TOKEN' => 'malicious' }
+    expect(last_response.status).to eq(200)
+    expect(last_request.env['spec.base_middleware_seen_authorization']).to eq('Bearer valid')
+  end
+
   it 'enforces audience via with_required_audience! (success)' do
     get '/aud_ok', {}, { 'HTTP_AUTHORIZATION' => 'Bearer valid' }
     expect(last_response.status).to eq(200)
@@ -130,28 +175,11 @@ RSpec.describe 'Rails integration', type: :request do
   end
 
   it 'renders 500 JSON when render_500_json is enabled and StandardError occurs' do
-    logger = Class.new do
-      attr_reader :errors
-
-      def initialize
-        @errors = []
-      end
-
-      %i[debug info warn fatal unknown].each { |m| define_method(m) { |_msg = nil| } }
-
-      def error(msg = nil)
-        @errors << msg
-      end
-
-      def level=(val); @level = val; end
-
-      def tagged(*_tags)
-        yield
-      end
-    end.new
+    io = StringIO.new
+    tagged_logger = ActiveSupport::TaggedLogging.new(Logger.new(io))
 
     previous = Rails.logger
-    Rails.logger = logger
+    Rails.logger = tagged_logger
     begin
       get '/boom', {}, { 'HTTP_AUTHORIZATION' => 'Bearer valid' }
     ensure
@@ -160,7 +188,8 @@ RSpec.describe 'Rails integration', type: :request do
     expect(last_response.status).to eq(500)
     body = JSON.parse(last_response.body)
     expect(body['error']).to eq('internal_server_error')
-    expect(logger.errors.join("\n")).to include('StandardError', 'boom')
+    io.rewind
+    expect(io.string).to include('StandardError', 'boom')
   end
 
   it 'rescues Pundit::NotAuthorizedError to 403 JSON' do

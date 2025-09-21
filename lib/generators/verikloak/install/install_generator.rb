@@ -30,6 +30,8 @@ module Verikloak
           2) Set discovery_url / audience in config/initializers/verikloak.rb
           3) (Optional) If you disable auto-include, add this line to ApplicationController:
                include Verikloak::Rails::Controller
+          4) (Optional) For BFF/proxy setups, add gem 'verikloak-bff' to normalize headers.
+          5) (Optional) When using Pundit policies, consider gem 'verikloak-pundit' for richer errors.
         MSG
       end
     end
