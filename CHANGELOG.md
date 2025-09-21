@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.1] - 2025-09-21
+
+### Changed
+- Simplify `with_required_audience!` to always raise `Verikloak::Error`, letting the shared handler render forbidden responses
+
+### Fixed
+- Ensure the 500 JSON renderer logs exceptions against the actual Rails logger even when wrapped by tagged logging adapters
+
+### Documentation
+- Describe the `rescue_pundit` configuration flag and default initializer settings
+
 ## [0.2.0] - 2025-09-14
 
 ### Breaking
