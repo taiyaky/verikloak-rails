@@ -38,34 +38,12 @@ module Verikloak
         def configure_middleware(app)
           apply_configuration(app)
 
-          discovery_url = Verikloak::Rails.config.discovery_url
-          if discovery_url.respond_to?(:blank?) ? discovery_url.blank? : discovery_url.nil? || (discovery_url.respond_to?(:empty?) && discovery_url.empty?)
-            message = '[verikloak] discovery_url is not configured; skipping middleware insertion.'
-            if defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
-              ::Rails.logger.warn(message)
-            else
-              warn(message)
-            end
+          unless discovery_url_present?
+            log_missing_discovery_url_warning
             return
           end
 
-          base_options = Verikloak::Rails.config.middleware_options
-          stack = app.middleware
-          if (before = Verikloak::Rails.config.middleware_insert_before)
-            stack.insert_before before,
-                                ::Verikloak::Middleware,
-                                **base_options
-          else
-            after = Verikloak::Rails.config.middleware_insert_after || ::Rails::Rack::Logger
-            if after
-              stack.insert_after after,
-                                 ::Verikloak::Middleware,
-                                 **base_options
-            else
-              stack.use ::Verikloak::Middleware, **base_options
-            end
-          end
-          stack
+          insert_base_middleware(app)
         end
 
         # Insert the optional HeaderGuard middleware when verikloak-bff is present.
@@ -102,6 +80,51 @@ module Verikloak
               c.send("#{key}=", rails_cfg[key]) if rails_cfg.key?(key)
             end
             c.rescue_pundit = false if !rails_cfg.key?(:rescue_pundit) && defined?(::Verikloak::Pundit)
+          end
+        end
+
+        def discovery_url_present?
+          discovery_url = Verikloak::Rails.config.discovery_url
+          return false unless discovery_url
+
+          return !discovery_url.blank? if discovery_url.respond_to?(:blank?)
+          return !discovery_url.empty? if discovery_url.respond_to?(:empty?)
+
+          true
+        end
+
+        def log_missing_discovery_url_warning
+          message = '[verikloak] discovery_url is not configured; skipping middleware insertion.'
+          if defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
+            ::Rails.logger.warn(message)
+          else
+            warn(message)
+          end
+        end
+
+        def insert_base_middleware(app)
+          stack = app.middleware
+          base_options = Verikloak::Rails.config.middleware_options
+
+          if (before = Verikloak::Rails.config.middleware_insert_before)
+            stack.insert_before before,
+                                ::Verikloak::Middleware,
+                                **base_options
+          else
+            insert_middleware_after(stack, base_options)
+          end
+
+          stack
+        end
+
+        def insert_middleware_after(stack, base_options)
+          after = Verikloak::Rails.config.middleware_insert_after || ::Rails::Rack::Logger
+          if after
+            stack.insert_after after,
+                               ::Verikloak::Middleware,
+                               **base_options
+          else
+            stack.use ::Verikloak::Middleware, **base_options
           end
         end
       end
