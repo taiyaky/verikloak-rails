@@ -65,7 +65,7 @@ module Verikloak
       # @return [void]
       def initialize
         @discovery_url = nil
-        @audience      = nil
+        @audience      = 'rails-api'
         @issuer        = nil
         @leeway        = 60
         @skip_paths    = ['/up', '/health', '/rails/health']

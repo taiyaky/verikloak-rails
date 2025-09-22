@@ -106,7 +106,7 @@ Keys under `config.verikloak`:
 | Key | Type | Description | Default |
 | --- | --- | --- | --- |
 | `discovery_url` | String | OIDC discovery URL | `nil` |
-| `audience` | String or Array | Expected `aud` | `nil` |
+| `audience` | String or Array | Expected `aud` | `'rails-api'` |
 | `issuer` | String | Expected `iss` | `nil` |
 | `leeway` | Integer | Clock skew allowance (seconds) | `60` |
 | `skip_paths` | Array<String> | Paths to skip verification | `['/up','/health','/rails/health']` |
