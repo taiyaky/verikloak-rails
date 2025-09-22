@@ -229,4 +229,45 @@ RSpec.describe 'Rails integration', type: :request do
     expect(captured).not_to be_empty
     expect(captured.flatten).to include('req:req-xyz', 'sub:user-123 malicious value')
   end
+
+  context 'when discovery_url is missing' do
+    it 'skips middleware insertion and logs a helpful warning' do
+      Verikloak::Rails.instance_variable_set(:@config, nil)
+      ::Verikloak::Middleware.last_options = nil
+
+      log_io = StringIO.new
+      logger = Logger.new(log_io)
+
+      previous_app = Rails.application
+      previous_logger = Rails.logger
+
+      app_class = Class.new(::Rails::Application)
+      app_class.config.root = File.expand_path('../..', __dir__)
+      app_class.config.secret_key_base = 'missing-discovery-secret'
+      app_class.config.eager_load = false
+      app_class.config.consider_all_requests_local = true
+      app_class.config.hosts.clear if app_class.config.respond_to?(:hosts)
+      app_class.config.logger = logger
+      app_class.config.verikloak.discovery_url = nil
+      app_class.config.verikloak.auto_insert_bff_header_guard = true
+
+      begin
+        Rails.application = app_class if Rails.respond_to?(:application=)
+        Rails.logger = logger if Rails.respond_to?(:logger=)
+
+        app_class.initialize!
+
+        middlewares = app_class.middleware.middlewares
+        expect(middlewares).not_to include(::Verikloak::Middleware)
+        expect(middlewares).not_to include(::Verikloak::Bff::HeaderGuard)
+        expect(::Verikloak::Middleware.last_options).to be_nil
+
+        log_io.rewind
+        expect(log_io.string).to include('discovery_url is not configured')
+      ensure
+        Rails.application = previous_app if Rails.respond_to?(:application=)
+        Rails.logger = previous_logger if Rails.respond_to?(:logger=)
+      end
+    end
+  end
 end

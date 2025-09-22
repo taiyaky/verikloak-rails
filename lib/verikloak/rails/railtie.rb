@@ -17,7 +17,7 @@ module Verikloak
       # @return [void]
       initializer 'verikloak.configure' do |app|
         stack = ::Verikloak::Rails::Railtie.send(:configure_middleware, app)
-        ::Verikloak::Rails::Railtie.send(:configure_bff_guard, stack)
+        ::Verikloak::Rails::Railtie.send(:configure_bff_guard, stack) if stack
       end
 
       # Optionally include the controller concern when ActionController loads.
@@ -37,6 +37,18 @@ module Verikloak
         # @return [ActionDispatch::MiddlewareStackProxy] configured middleware stack
         def configure_middleware(app)
           apply_configuration(app)
+
+          discovery_url = Verikloak::Rails.config.discovery_url
+          if discovery_url.respond_to?(:blank?) ? discovery_url.blank? : discovery_url.nil? || (discovery_url.respond_to?(:empty?) && discovery_url.empty?)
+            message = '[verikloak] discovery_url is not configured; skipping middleware insertion.'
+            if defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
+              ::Rails.logger.warn(message)
+            else
+              warn(message)
+            end
+            return
+          end
+
           base_options = Verikloak::Rails.config.middleware_options
           stack = app.middleware
           if (before = Verikloak::Rails.config.middleware_insert_before)
