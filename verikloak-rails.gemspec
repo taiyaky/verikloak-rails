@@ -19,9 +19,9 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = '>= 3.1'
 
   # Runtime dependencies
+  spec.add_dependency 'rack', '>= 2.2', '< 3.0'
   spec.add_dependency 'rails', '>= 6.1', '< 9.0'
   spec.add_dependency 'verikloak', '>= 0.2.0', '< 1.0.0'
-
   # Metadata for RubyGems
   spec.metadata['source_code_uri'] = spec.homepage
   spec.metadata['changelog_uri']   = "#{spec.homepage}/blob/main/CHANGELOG.md"
