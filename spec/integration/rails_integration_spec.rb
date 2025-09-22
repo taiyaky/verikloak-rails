@@ -112,7 +112,7 @@ RSpec.describe 'Rails integration', type: :request do
   include Rack::Test::Methods
 
   before do
-    Verikloak::Rails.instance_variable_set(:@config, nil)
+    Verikloak::Rails.reset!
   end
 
   def app
@@ -232,7 +232,7 @@ RSpec.describe 'Rails integration', type: :request do
 
   context 'when discovery_url is missing' do
     it 'skips middleware insertion and logs a helpful warning' do
-      Verikloak::Rails.instance_variable_set(:@config, nil)
+      Verikloak::Rails.reset!
       ::Verikloak::Middleware.last_options = nil
 
       log_io = StringIO.new

@@ -35,6 +35,16 @@ module Verikloak
       def configure
         yield(config)
       end
+
+      # Reset configuration to its default state.
+      #
+      # Primarily intended for test environments that need to ensure a clean
+      # configuration between examples.
+      #
+      # @return [void]
+      def reset!
+        @config = nil
+      end
     end
   end
 end
