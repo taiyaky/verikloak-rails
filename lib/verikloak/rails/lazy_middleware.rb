@@ -99,7 +99,7 @@ module Verikloak
       def configuration_error(missing)
         message = "Verikloak configuration missing: #{missing.join(', ')}"
         if defined?(::Verikloak::Error)
-          ::Verikloak::Error.new(message, code: 'rails_configuration_missing')
+          ::Verikloak::Error.new('rails_configuration_missing', message)
         else
           ::RuntimeError.new(message)
         end

@@ -15,9 +15,9 @@ RSpec.describe Verikloak::Rails::LazyMiddleware do
     stub_const('Verikloak::Error', Class.new(StandardError) do
       attr_reader :code
 
-      def initialize(message = nil, code: nil)
-        super(message)
+      def initialize(code = 'unauthorized', message = nil)
         @code = code
+        super(message || code)
       end
     end)
 

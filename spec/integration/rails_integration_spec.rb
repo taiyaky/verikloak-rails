@@ -112,7 +112,15 @@ RSpec.describe 'Rails integration', type: :request do
   include Rack::Test::Methods
 
   before do
+    # Reset configuration between tests but ensure Rails config is applied
     Verikloak::Rails.instance_variable_set(:@config, nil)
+    # Re-apply Rails configuration
+    Verikloak::Rails.configure do |config|
+      config.discovery_url = 'https://example/.well-known/openid-configuration'
+      config.audience = 'rails-api'
+      config.leeway = 60
+      config.render_500_json = true
+    end
   end
 
   def app
@@ -126,12 +134,16 @@ RSpec.describe 'Rails integration', type: :request do
 
   it 'includes controller concern and authenticates when Authorization is valid' do
     get '/hello', {}, { 'HTTP_AUTHORIZATION' => 'Bearer valid' }
+    puts "Response status: #{last_response.status}"
+    puts "Response body: #{last_response.body}" if last_response.status != 200
     expect(last_response.status).to eq(200)
     expect(JSON.parse(last_response.body)['sub']).to eq('user-123')
   end
 
   it 'returns 401 JSON when unauthenticated' do
     get '/hello'
+    puts "Unauthenticated response status: #{last_response.status}"
+    puts "Unauthenticated response body: #{last_response.body}" if last_response.status != 401
     expect(last_response.status).to eq(401)
     body = JSON.parse(last_response.body)
     expect(body['error']).to eq('unauthorized')
