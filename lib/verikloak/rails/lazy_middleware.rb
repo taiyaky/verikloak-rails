@@ -30,6 +30,14 @@ module Verikloak
         @mutex = Mutex.new
       end
 
+      # Reset the delegate middleware (useful for testing)
+      # @return [void]
+      def reset!
+        @mutex.synchronize do
+          @delegate = nil
+        end
+      end
+
       # Rack entrypoint which ensures the delegate exists before forwarding
       # requests downstream.
       #

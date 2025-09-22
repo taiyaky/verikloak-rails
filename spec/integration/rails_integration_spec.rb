@@ -90,8 +90,14 @@ class TestApp < Rails::Application
   config.consider_all_requests_local = true
   # Opt in to Rails 8.1 behavior to avoid deprecation around `to_time`
   config.active_support.to_time_preserves_timezone = :zone
+  # Completely disable Host Authorization for testing
   config.hosts.clear if config.respond_to?(:hosts)
+  # Alternative method to disable host checking
+  config.force_ssl = false
   config.logger = Logger.new(nil)
+  
+  # Disable HostAuthorization middleware entirely for tests
+  config.middleware.delete ActionDispatch::HostAuthorization if defined?(ActionDispatch::HostAuthorization)
 
   # verikloak-rails configuration
   config.verikloak.discovery_url = 'https://example/.well-known/openid-configuration'
@@ -112,8 +118,15 @@ RSpec.describe 'Rails integration', type: :request do
   include Rack::Test::Methods
 
   before do
+    # Set default host for Rack::Test to avoid Host Authorization errors
+    header 'Host', 'test.host'
+    
     # Reset configuration between tests but ensure Rails config is applied
     Verikloak::Rails.instance_variable_set(:@config, nil)
+    
+    # Clear cached app to force fresh middleware stack
+    @app = nil
+    
     # Re-apply Rails configuration
     Verikloak::Rails.configure do |config|
       config.discovery_url = 'https://example/.well-known/openid-configuration'
@@ -121,15 +134,19 @@ RSpec.describe 'Rails integration', type: :request do
       config.leeway = 60
       config.render_500_json = true
     end
+    
+    # Reset stub state
+    if defined?(::Verikloak::Middleware) && ::Verikloak::Middleware.respond_to?(:last_options=)
+      ::Verikloak::Middleware.last_options = nil
+    end
   end
 
   def app
-    @app ||= begin
-      TestApp.initialize! unless TestApp.initialized?
-      # Ensure a usable logger in case Rails.logger is nil in this environment
-      ::Rails.logger ||= Logger.new($stderr)
-      Rails.application
-    end
+    # Always recreate the app to ensure fresh middleware state
+    TestApp.initialize! unless TestApp.initialized?
+    # Ensure a usable logger in case Rails.logger is nil in this environment
+    ::Rails.logger ||= Logger.new($stderr)
+    Rails.application
   end
 
   it 'includes controller concern and authenticates when Authorization is valid' do
