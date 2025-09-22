@@ -37,20 +37,21 @@ module Verikloak
         # @return [ActionDispatch::MiddlewareStackProxy] configured middleware stack
         def configure_middleware(app)
           apply_configuration(app)
-          base_options = Verikloak::Rails.config.middleware_options
+          options_resolver = -> { Verikloak::Rails.config.middleware_options }
+          middleware_class = ::Verikloak::Rails::LazyMiddleware
           stack = app.middleware
-          if (before = Verikloak::Rails.config.middleware_insert_before)
+          if (before = normalize_middleware_target(Verikloak::Rails.config.middleware_insert_before))
             stack.insert_before before,
-                                ::Verikloak::Middleware,
-                                **base_options
+                                middleware_class,
+                                options_resolver
           else
-            after = Verikloak::Rails.config.middleware_insert_after || ::Rails::Rack::Logger
+            after = normalize_middleware_target(Verikloak::Rails.config.middleware_insert_after) || ::Rails::Rack::Logger
             if after
               stack.insert_after after,
-                                 ::Verikloak::Middleware,
-                                 **base_options
+                                 middleware_class,
+                                 options_resolver
             else
-              stack.use ::Verikloak::Middleware, **base_options
+              stack.use middleware_class, options_resolver
             end
           end
           stack
@@ -64,14 +65,14 @@ module Verikloak
           return unless Verikloak::Rails.config.auto_insert_bff_header_guard
           return unless defined?(::Verikloak::Bff::HeaderGuard)
 
-          guard_before = Verikloak::Rails.config.bff_header_guard_insert_before
-          guard_after = Verikloak::Rails.config.bff_header_guard_insert_after
+          guard_before = normalize_middleware_target(Verikloak::Rails.config.bff_header_guard_insert_before)
+          guard_after = normalize_middleware_target(Verikloak::Rails.config.bff_header_guard_insert_after)
           if guard_before
             stack.insert_before guard_before, ::Verikloak::Bff::HeaderGuard
           elsif guard_after
             stack.insert_after guard_after, ::Verikloak::Bff::HeaderGuard
           else
-            stack.insert_before ::Verikloak::Middleware, ::Verikloak::Bff::HeaderGuard
+            stack.insert_before ::Verikloak::Rails::LazyMiddleware, ::Verikloak::Bff::HeaderGuard
           end
         end
 
@@ -91,6 +92,12 @@ module Verikloak
             end
             c.rescue_pundit = false if !rails_cfg.key?(:rescue_pundit) && defined?(::Verikloak::Pundit)
           end
+        end
+
+        def normalize_middleware_target(target)
+          return if target.nil?
+
+          target == ::Verikloak::Middleware ? ::Verikloak::Rails::LazyMiddleware : target
         end
       end
     end

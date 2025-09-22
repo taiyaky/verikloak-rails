@@ -4,6 +4,7 @@ require 'verikloak/rails/version'
 require 'verikloak/rails/configuration'
 require 'verikloak/rails/error_renderer'
 require 'verikloak/rails/controller'
+require 'verikloak/rails/lazy_middleware'
 require 'verikloak/rails/railtie'
 
 module Verikloak

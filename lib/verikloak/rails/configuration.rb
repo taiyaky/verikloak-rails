@@ -93,7 +93,7 @@ module Verikloak
           issuer: issuer,
           leeway: leeway,
           skip_paths: skip_paths
-        }.compact
+        }
       end
     end
   end

@@ -2,7 +2,6 @@
 
 require 'spec_helper'
 
-
 # Stub base error if the base gem is not loaded
 module ::Verikloak; end unless defined?(::Verikloak)
 unless defined?(::Verikloak::Error)

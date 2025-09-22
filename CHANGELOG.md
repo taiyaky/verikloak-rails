@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.2.5] - 2025-09-23
+
+### Fixed
+- Defer `Verikloak::Middleware` construction until the first request so the Rails install generator runs without a preconfigured discovery URL while still failing fast when traffic hits.
+
+---
+
 ## [0.2.4] - 2025-09-23
 
 ### Fixed
