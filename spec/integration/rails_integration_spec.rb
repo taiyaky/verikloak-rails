@@ -253,19 +253,18 @@ RSpec.describe 'Rails integration', type: :request do
 
       begin
         # Rails freezes the default middleware operations after the first
-        # application boots. Ensure this throwaway app receives a writable copy
-        # so the boot sequence can mutate the stack without raising FrozenError.
+        # application boots. Ensure this throwaway app receives a writable
+        # array so the boot sequence can mutate the stack without raising
+        # FrozenError.
         middleware_proxy = app_class.config.middleware
-        if middleware_proxy.respond_to?(:dup)
-          duplicated = middleware_proxy.dup
-          ops_var = %i[@operations @middlewares].find do |ivar|
-            duplicated.instance_variable_defined?(ivar)
+        ops_var = %i[@operations @middlewares].find do |ivar|
+          middleware_proxy.instance_variable_defined?(ivar)
+        end
+        if ops_var
+          operations = middleware_proxy.instance_variable_get(ops_var)
+          if operations.respond_to?(:dup)
+            middleware_proxy.instance_variable_set(ops_var, operations.dup)
           end
-          if ops_var
-            operations = duplicated.instance_variable_get(ops_var)
-            duplicated.instance_variable_set(ops_var, operations.dup) if operations.respond_to?(:dup)
-          end
-          app_class.config.middleware = duplicated
         end
 
         Rails.application = app_class if Rails.respond_to?(:application=)
