@@ -67,11 +67,13 @@ module Verikloak
       # @return [Hash]
       # @raise [Verikloak::Error] when required configuration is missing
       def build_options
-        options = @options_resolver.call || {}
+        options = @options_resolver.call
+        raise configuration_error(CONFIG_KEYS.values) if options.nil?
+
         missing = missing_config(options)
         raise configuration_error(missing) if missing.any?
 
-        options.compact
+        options
       end
 
       # Determine which required configuration keys are missing from the
