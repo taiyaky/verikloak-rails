@@ -136,13 +136,52 @@ module Verikloak
         # @param base_options [Hash] options to pass to the middleware
         # @return [void]
         def insert_middleware_after(stack, base_options)
-          after = Verikloak::Rails.config.middleware_insert_after || ::Rails::Rack::Logger
-          if after
-            stack.insert_after after,
-                               ::Verikloak::Middleware,
-                               **base_options
+          candidates = middleware_insert_after_candidates
+
+          candidates.each do |candidate|
+            next unless candidate
+
+            begin
+              stack.insert_after candidate,
+                                 ::Verikloak::Middleware,
+                                 **base_options
+              return
+            rescue ::ActionDispatch::MiddlewareStack::MiddlewareNotFound => e
+              log_middleware_insertion_warning(candidate, e)
+            end
+          end
+
+          stack.use ::Verikloak::Middleware, **base_options
+        end
+
+        # Build list of middleware to try as insertion points.
+        # Starts with the configured value (if any) and falls back to defaults
+        # that exist across supported Rails versions.
+        #
+        # @return [Array<Object>] ordered list of potential middleware targets
+        def middleware_insert_after_candidates
+          configured = Verikloak::Rails.config.middleware_insert_after
+
+          defaults = []
+          defaults << ::Rails::Rack::Logger if defined?(::Rails::Rack::Logger)
+          defaults << ::ActionDispatch::Executor if defined?(::ActionDispatch::Executor)
+          defaults << ::Rack::Head if defined?(::Rack::Head)
+          defaults << ::Rack::Runtime if defined?(::Rack::Runtime)
+
+          ([configured] + defaults).compact.uniq
+        end
+
+        # Log when a middleware insertion target cannot be found.
+        #
+        # @param candidate [Object] middleware we attempted to insert after
+        # @param error [ActionDispatch::MiddlewareStack::MiddlewareNotFound]
+        # @return [void]
+        def log_middleware_insertion_warning(candidate, error)
+          message = "[verikloak] Unable to insert after #{candidate.inspect}: #{error.message}"
+          if defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
+            ::Rails.logger.warn(message)
           else
-            stack.use ::Verikloak::Middleware, **base_options
+            warn(message)
           end
         end
       end
