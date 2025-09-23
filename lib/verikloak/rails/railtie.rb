@@ -16,8 +16,7 @@ module Verikloak
       # Apply configuration and insert middleware.
       # @return [void]
       initializer 'verikloak.configure' do |app|
-        stack = ::Verikloak::Rails::Railtie.send(:configure_middleware, app)
-        ::Verikloak::Rails::Railtie.send(:configure_bff_guard, stack) if stack
+        ::Verikloak::Rails::Railtie.send(:configure_middleware, app)
       end
 
       # Optionally include the controller concern when ActionController loads.
@@ -43,7 +42,10 @@ module Verikloak
             return
           end
 
-          insert_base_middleware(app)
+          stack = insert_base_middleware(app)
+          configure_bff_guard(stack)
+
+          stack
         end
 
         # Insert the optional HeaderGuard middleware when verikloak-bff is present.
