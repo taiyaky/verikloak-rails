@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.7] - 2025-09-23
+
+### Fixed
+- Handle `RuntimeError` exceptions from `ActionDispatch::MiddlewareStack#insert_after` in Rails 8+
+- Add `inserted` flag to prevent duplicate middleware insertion when fallback is used
+- Enhance error handling to gracefully handle all middleware insertion failures
+
+### Changed
+- Update middleware insertion candidates logic for better Rails version compatibility
+  - Rails 8+ now raises `RuntimeError` instead of the deprecated `ActionDispatch::MiddlewareStack::MiddlewareNotFound`
+  - Broaden exception handling to catch `StandardError` for robustness across Rails versions
+  - Improve logging and debugging information for middleware insertion failures
+
 ## [0.2.6] - 2025-09-23
 
 ### Fixed
