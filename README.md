@@ -114,7 +114,7 @@ Keys under `config.verikloak`:
 | `error_renderer` | Object responding to `render(controller, error)` | Override error rendering | built-in JSON renderer |
 | `auto_include_controller` | Boolean | Auto-include controller concern | `true` |
 | `render_500_json` | Boolean | Rescue `StandardError`, log the exception, and render JSON 500 | `false` |
-| `rescue_pundit` | Boolean | Rescue `Pundit::NotAuthorizedError` to 403 JSON when Pundit is present (auto-disabled when `verikloak-pundit` is loaded and the initializer leaves it unset) | `true` |
+| `rescue_pundit` | Boolean | Rescue `Pundit::NotAuthorizedError` to 403 JSON when Pundit is present<br/>(auto-disabled when `verikloak-pundit` is loaded and the initializer leaves it unset) | `true` |
 | `middleware_insert_before` | Object/String/Symbol | Insert `Verikloak::Middleware` before this Rack middleware | `nil` |
 | `middleware_insert_after` | Object/String/Symbol | Insert `Verikloak::Middleware` after this Rack middleware (`Rails::Rack::Logger` when `nil`) | `nil` |
 | `auto_insert_bff_header_guard` | Boolean | Auto insert `Verikloak::Bff::HeaderGuard` when the gem is present | `true` |

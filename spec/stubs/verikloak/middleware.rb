@@ -4,7 +4,13 @@
 # It simulates successful authentication when a bearer token 'valid' is present.
 
 module Verikloak
+  # Stub missing error classes that the real middleware expects
+  class DiscoveryError < StandardError; end
+
   class Middleware
+    # Stub missing error classes
+    class MiddlewareError < StandardError; end
+
     class << self
       attr_accessor :last_options
     end
