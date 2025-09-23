@@ -145,7 +145,7 @@ module Verikloak
               stack.insert_after candidate,
                                  ::Verikloak::Middleware,
                                  **base_options
-              return
+              break
             rescue ::ActionDispatch::MiddlewareStack::MiddlewareNotFound => e
               log_middleware_insertion_warning(candidate, e)
             end
