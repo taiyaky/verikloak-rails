@@ -177,7 +177,8 @@ module Verikloak
         # @param error [ActionDispatch::MiddlewareStack::MiddlewareNotFound]
         # @return [void]
         def log_middleware_insertion_warning(candidate, error)
-          message = "[verikloak] Unable to insert after #{candidate.inspect}: #{error.message}"
+          candidate_name = candidate.is_a?(Class) ? candidate.name : candidate.class.name
+          message = "[verikloak] Unable to insert after #{candidate_name}: #{error.message}"
           if defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
             ::Rails.logger.warn(message)
           else
