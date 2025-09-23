@@ -5,20 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+---
+
+## [0.2.5] - 2025-09-23
+
+### Added
+- Integration test coverage for missing discovery URL scenarios
+- `reset!` method for configuration cleanup in test environments
+
+### Fixed
+- Graceful handling of missing or blank discovery URLs during middleware configuration
+- Skip middleware insertion and log warning when discovery URL is not configured
+- Only configure BFF header guard when base middleware is successfully inserted
+
+### Changed
+- Improved error handling and validation for discovery URL configuration
+- Enhanced middleware insertion logic with better separation of concerns
 
 ## [0.2.4] - 2025-09-23
 
 ### Fixed
 - Package the installer template so `rails g verikloak:install` works in packaged gems (no more missing `initializer.rb.erb`).
 
----
-
 ## [0.2.3] - 2025-09-22
 
 ### Changed
 - Provide a safe default audience (`'rails-api'`) so fresh installs keep `Verikloak::Middleware` active and remain compatible with the optional `verikloak-audience` gem.
-
----
 
 ## [0.2.2] - 2025-09-21
 
@@ -31,8 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 - Note related gems in the installer output and README, including new configuration options for middleware ordering and BFF auto-insertion.
-
----
 
 ## [0.2.1] - 2025-09-21
 

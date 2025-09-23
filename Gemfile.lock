@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    verikloak-rails (0.2.4)
+    verikloak-rails (0.2.5)
       rack (>= 2.2, < 4.0)
       rails (>= 6.1, < 9.0)
       verikloak (>= 0.2.0, < 1.0.0)
