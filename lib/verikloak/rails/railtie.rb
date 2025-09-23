@@ -83,6 +83,9 @@ module Verikloak
           end
         end
 
+        # Check if discovery_url is present and valid.
+        #
+        # @return [Boolean] true if discovery_url is configured and not empty
         def discovery_url_present?
           discovery_url = Verikloak::Rails.config.discovery_url
           return false unless discovery_url
@@ -93,6 +96,10 @@ module Verikloak
           true
         end
 
+        # Log a warning message when discovery_url is missing.
+        # Uses Rails.logger if available, falls back to warn.
+        #
+        # @return [void]
         def log_missing_discovery_url_warning
           message = '[verikloak] discovery_url is not configured; skipping middleware insertion.'
           if defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
@@ -102,6 +109,11 @@ module Verikloak
           end
         end
 
+        # Insert the base Verikloak::Middleware into the application middleware stack.
+        # Respects the configured insertion point (before or after specified middleware).
+        #
+        # @param app [Rails::Application] the Rails application
+        # @return [ActionDispatch::MiddlewareStackProxy] the configured middleware stack
         def insert_base_middleware(app)
           stack = app.middleware
           base_options = Verikloak::Rails.config.middleware_options
@@ -117,6 +129,12 @@ module Verikloak
           stack
         end
 
+        # Insert middleware after a specified middleware or at the default position.
+        # Handles the case where no specific insertion point is configured.
+        #
+        # @param stack [ActionDispatch::MiddlewareStackProxy] the middleware stack
+        # @param base_options [Hash] options to pass to the middleware
+        # @return [void]
         def insert_middleware_after(stack, base_options)
           after = Verikloak::Rails.config.middleware_insert_after || ::Rails::Rack::Logger
           if after
