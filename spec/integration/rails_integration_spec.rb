@@ -112,7 +112,7 @@ RSpec.describe 'Rails integration', type: :request do
   include Rack::Test::Methods
 
   before do
-    Verikloak::Rails.instance_variable_set(:@config, nil)
+    Verikloak::Rails.reset!
   end
 
   def app
@@ -228,5 +228,31 @@ RSpec.describe 'Rails integration', type: :request do
     end
     expect(captured).not_to be_empty
     expect(captured.flatten).to include('req:req-xyz', 'sub:user-123 malicious value')
+  end
+
+  context 'when discovery_url is missing' do
+    it 'handles missing discovery_url configuration gracefully' do
+      # Reset state for this test
+      Verikloak::Rails.reset!
+      ::Verikloak::Middleware.last_options = nil
+
+      # Configure with missing discovery_url
+      Verikloak::Rails.configure do |config|
+        config.discovery_url = nil
+        config.audience = 'test-audience'
+      end
+      
+      # Verify that the configuration reflects the missing discovery_url
+      expect(Verikloak::Rails.config.discovery_url).to be_nil
+      expect(Verikloak::Rails.config.audience).to eq('test-audience')
+      
+      # Test that middleware_options includes the nil discovery_url
+      options = Verikloak::Rails.config.middleware_options
+      expect(options[:discovery_url]).to be_nil
+      expect(options[:audience]).to eq('test-audience')
+      
+      # Verify no middleware was actually configured with these options
+      expect(::Verikloak::Middleware.last_options).to be_nil
+    end
   end
 end

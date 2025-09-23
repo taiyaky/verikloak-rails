@@ -17,7 +17,7 @@ module Verikloak
       # @return [void]
       initializer 'verikloak.configure' do |app|
         stack = ::Verikloak::Rails::Railtie.send(:configure_middleware, app)
-        ::Verikloak::Rails::Railtie.send(:configure_bff_guard, stack)
+        ::Verikloak::Rails::Railtie.send(:configure_bff_guard, stack) if stack
       end
 
       # Optionally include the controller concern when ActionController loads.
@@ -37,23 +37,13 @@ module Verikloak
         # @return [ActionDispatch::MiddlewareStackProxy] configured middleware stack
         def configure_middleware(app)
           apply_configuration(app)
-          base_options = Verikloak::Rails.config.middleware_options
-          stack = app.middleware
-          if (before = Verikloak::Rails.config.middleware_insert_before)
-            stack.insert_before before,
-                                ::Verikloak::Middleware,
-                                **base_options
-          else
-            after = Verikloak::Rails.config.middleware_insert_after || ::Rails::Rack::Logger
-            if after
-              stack.insert_after after,
-                                 ::Verikloak::Middleware,
-                                 **base_options
-            else
-              stack.use ::Verikloak::Middleware, **base_options
-            end
+
+          unless discovery_url_present?
+            log_missing_discovery_url_warning
+            return
           end
-          stack
+
+          insert_base_middleware(app)
         end
 
         # Insert the optional HeaderGuard middleware when verikloak-bff is present.
@@ -90,6 +80,69 @@ module Verikloak
               c.send("#{key}=", rails_cfg[key]) if rails_cfg.key?(key)
             end
             c.rescue_pundit = false if !rails_cfg.key?(:rescue_pundit) && defined?(::Verikloak::Pundit)
+          end
+        end
+
+        # Check if discovery_url is present and valid.
+        #
+        # @return [Boolean] true if discovery_url is configured and not empty
+        def discovery_url_present?
+          discovery_url = Verikloak::Rails.config.discovery_url
+          return false unless discovery_url
+
+          return !discovery_url.blank? if discovery_url.respond_to?(:blank?)
+          return !discovery_url.empty? if discovery_url.respond_to?(:empty?)
+
+          true
+        end
+
+        # Log a warning message when discovery_url is missing.
+        # Uses Rails.logger if available, falls back to warn.
+        #
+        # @return [void]
+        def log_missing_discovery_url_warning
+          message = '[verikloak] discovery_url is not configured; skipping middleware insertion.'
+          if defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
+            ::Rails.logger.warn(message)
+          else
+            warn(message)
+          end
+        end
+
+        # Insert the base Verikloak::Middleware into the application middleware stack.
+        # Respects the configured insertion point (before or after specified middleware).
+        #
+        # @param app [Rails::Application] the Rails application
+        # @return [ActionDispatch::MiddlewareStackProxy] the configured middleware stack
+        def insert_base_middleware(app)
+          stack = app.middleware
+          base_options = Verikloak::Rails.config.middleware_options
+
+          if (before = Verikloak::Rails.config.middleware_insert_before)
+            stack.insert_before before,
+                                ::Verikloak::Middleware,
+                                **base_options
+          else
+            insert_middleware_after(stack, base_options)
+          end
+
+          stack
+        end
+
+        # Insert middleware after a specified middleware or at the default position.
+        # Handles the case where no specific insertion point is configured.
+        #
+        # @param stack [ActionDispatch::MiddlewareStackProxy] the middleware stack
+        # @param base_options [Hash] options to pass to the middleware
+        # @return [void]
+        def insert_middleware_after(stack, base_options)
+          after = Verikloak::Rails.config.middleware_insert_after || ::Rails::Rack::Logger
+          if after
+            stack.insert_after after,
+                               ::Verikloak::Middleware,
+                               **base_options
+          else
+            stack.use ::Verikloak::Middleware, **base_options
           end
         end
       end
