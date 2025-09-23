@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.6] - 2025-09-23
+
+### Fixed
+- Leave `config.verikloak.rescue_pundit` commented in the installer initializer so `verikloak-pundit` can automatically disable the built-in rescue.
+
+### Documentation
+- Align README compatibility with the current `verikloak` dependency range.
+- Clarify how the Pundit rescue interacts with the optional `verikloak-pundit` gem and adjust examples accordingly.
+
 ## [0.2.5] - 2025-09-23
 
 ### Added

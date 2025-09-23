@@ -26,7 +26,7 @@ module Verikloak
           ✅ verikloak: initializer created.
 
           Next steps:
-          1) Ensure the base gem is installed:   gem 'verikloak', '>= 0.1.2', '< 0.2'
+          1) Ensure the base gem is installed:   gem 'verikloak', '>= 0.2.0', '< 1.0.0'
           2) Set discovery_url / audience in config/initializers/verikloak.rb
           3) (Optional) If you disable auto-include, add this line to ApplicationController:
                include Verikloak::Rails::Controller
