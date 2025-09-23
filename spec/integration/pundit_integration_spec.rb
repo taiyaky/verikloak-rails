@@ -4,6 +4,12 @@ require 'spec_helper'
 require 'verikloak/rails'
 
 RSpec.describe 'Pundit integration auto-disable behavior' do
+  # Configuration keys to copy from Rails configuration
+  CONFIG_KEYS = %i[discovery_url audience issuer leeway skip_paths
+                   logger_tags error_renderer auto_include_controller
+                   render_500_json rescue_pundit middleware_insert_before
+                   middleware_insert_after auto_insert_bff_header_guard
+                   bff_header_guard_insert_before bff_header_guard_insert_after].freeze
   before do
     Verikloak::Rails.reset!
   end
@@ -23,11 +29,7 @@ RSpec.describe 'Pundit integration auto-disable behavior' do
       # Note: rescue_pundit key is intentionally not set
 
       Verikloak::Rails.configure do |c|
-        %i[discovery_url audience issuer leeway skip_paths
-           logger_tags error_renderer auto_include_controller
-           render_500_json rescue_pundit middleware_insert_before
-           middleware_insert_after auto_insert_bff_header_guard
-           bff_header_guard_insert_before bff_header_guard_insert_after].each do |key|
+        CONFIG_KEYS.each do |key|
           c.send("#{key}=", rails_cfg[key]) if rails_cfg.key?(key)
         end
         # This is the key logic from the Railtie
@@ -46,11 +48,7 @@ RSpec.describe 'Pundit integration auto-disable behavior' do
       rails_cfg.rescue_pundit = true  # Explicitly set
 
       Verikloak::Rails.configure do |c|
-        %i[discovery_url audience issuer leeway skip_paths
-           logger_tags error_renderer auto_include_controller
-           render_500_json rescue_pundit middleware_insert_before
-           middleware_insert_after auto_insert_bff_header_guard
-           bff_header_guard_insert_before bff_header_guard_insert_after].each do |key|
+        CONFIG_KEYS.each do |key|
           c.send("#{key}=", rails_cfg[key]) if rails_cfg.key?(key)
         end
         # Should NOT auto-disable because rescue_pundit was explicitly set
@@ -79,11 +77,7 @@ RSpec.describe 'Pundit integration auto-disable behavior' do
       rails_cfg.audience = 'test-audience'
 
       Verikloak::Rails.configure do |c|
-        %i[discovery_url audience issuer leeway skip_paths
-           logger_tags error_renderer auto_include_controller
-           render_500_json rescue_pundit middleware_insert_before
-           middleware_insert_after auto_insert_bff_header_guard
-           bff_header_guard_insert_before bff_header_guard_insert_after].each do |key|
+        CONFIG_KEYS.each do |key|
           c.send("#{key}=", rails_cfg[key]) if rails_cfg.key?(key)
         end
         # Should NOT auto-disable because verikloak-pundit is not present

@@ -112,9 +112,8 @@ class TestApp < Rails::Application
   config.consider_all_requests_local = true
   # Opt in to Rails 8.1 behavior to avoid deprecation around `to_time`
   config.active_support.to_time_preserves_timezone = :zone
-  if config.respond_to?(:hosts) && config.hosts.respond_to?(:clear)
-    config.hosts.clear
-  end
+  # Clear allowed hosts for testing
+  config.hosts.clear if config.respond_to?(:hosts)
   config.logger = Logger.new(nil)
 
   # verikloak-rails configuration
