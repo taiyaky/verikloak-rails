@@ -10,5 +10,8 @@ Rails.application.configure do
   config.verikloak.logger_tags = %i[request_id sub]
   config.verikloak.auto_include_controller = true
   config.verikloak.render_500_json = ENV.fetch('VERIKLOAK_RENDER_500', 'false') == 'true'
-  config.verikloak.rescue_pundit = ENV.fetch('VERIKLOAK_RESCUE_PUNDIT', 'true') == 'true'
+
+  # Optional Pundit rescue (403 JSON). Leave commented so `verikloak-pundit`
+  # can auto-disable the built-in handler when it is on the load path.
+  # config.verikloak.rescue_pundit = ENV.fetch('VERIKLOAK_RESCUE_PUNDIT', 'true') == 'true'
 end

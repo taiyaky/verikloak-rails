@@ -21,7 +21,7 @@ Provide drop-in, token-based authentication for Rails APIs via Verikloak (OIDC d
 ## Compatibility
 - Ruby: >= 3.1
 - Rails: 6.1 – 8.x
-- verikloak: >= 0.1.2, < 0.2
+- verikloak: >= 0.2.0, < 1.0.0
 
 ## Quick Start
 ```bash
@@ -114,7 +114,7 @@ Keys under `config.verikloak`:
 | `error_renderer` | Object responding to `render(controller, error)` | Override error rendering | built-in JSON renderer |
 | `auto_include_controller` | Boolean | Auto-include controller concern | `true` |
 | `render_500_json` | Boolean | Rescue `StandardError`, log the exception, and render JSON 500 | `false` |
-| `rescue_pundit` | Boolean | Rescue `Pundit::NotAuthorizedError` to 403 JSON when Pundit is present (auto-disabled when `verikloak-pundit` is loaded) | `true` |
+| `rescue_pundit` | Boolean | Rescue `Pundit::NotAuthorizedError` to 403 JSON when Pundit is present (auto-disabled when `verikloak-pundit` is loaded and the initializer leaves it unset) | `true` |
 | `middleware_insert_before` | Object/String/Symbol | Insert `Verikloak::Middleware` before this Rack middleware | `nil` |
 | `middleware_insert_after` | Object/String/Symbol | Insert `Verikloak::Middleware` after this Rack middleware (`Rails::Rack::Logger` when `nil`) | `nil` |
 | `auto_insert_bff_header_guard` | Boolean | Auto insert `Verikloak::Bff::HeaderGuard` when the gem is present | `true` |
@@ -157,8 +157,9 @@ Rails.application.configure do
   config.verikloak.logger_tags = %i[request_id sub]
   config.verikloak.render_500_json = ENV.fetch('VERIKLOAK_RENDER_500', 'false') == 'true'
 
-  # Optional Pundit rescue (403 JSON)
-  config.verikloak.rescue_pundit = ENV.fetch('VERIKLOAK_RESCUE_PUNDIT', 'true') == 'true'
+  # Optional Pundit rescue (403 JSON). Leave commented if you use
+  # verikloak-pundit so it can disable the built-in handler automatically.
+  # config.verikloak.rescue_pundit = ENV.fetch('VERIKLOAK_RESCUE_PUNDIT', 'true') == 'true'
 end
 ```
 
@@ -232,10 +233,10 @@ end
 ## Optional Pundit Rescue
 If the `pundit` gem is present, `Pundit::NotAuthorizedError` is rescued to a standardized 403 JSON. This is a lightweight convenience only; deeper Pundit integration (policies, helpers) is out of scope and can live in a separate plugin.
 
-When the optional [`verikloak-pundit`](https://github.com/taiyaky/verikloak-pundit) gem is loaded, the built-in rescue is automatically disabled to avoid double-handling errors. Explicitly set `config.verikloak.rescue_pundit` if you prefer different behavior.
+When the optional [`verikloak-pundit`](https://github.com/taiyaky/verikloak-pundit) gem is loaded, the built-in rescue is automatically disabled to avoid double-handling errors—as long as the initializer leaves `config.verikloak.rescue_pundit` unset. Uncomment the initializer line (or set the value elsewhere) if you prefer different behavior.
 
 ### Toggle
-Toggle with `config.verikloak.rescue_pundit` (default: true unless overridden by `verikloak-pundit`). Environment example:
+Toggle with `config.verikloak.rescue_pundit` (default: true; leave unset to allow `verikloak-pundit` to disable it). Environment example:
 
 ```ruby
 # config/initializers/verikloak.rb
