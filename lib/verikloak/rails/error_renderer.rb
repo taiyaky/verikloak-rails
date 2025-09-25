@@ -34,14 +34,9 @@ module Verikloak
       def render(controller, error)
         code, message = extract_code_message(error)
         status = status_for(error, code)
-        headers = {}
-        if status == 401
-          hdr = +'Bearer'
-          hdr << %( error="#{sanitize_quoted(code)}") if code
-          hdr << %( error_description="#{sanitize_quoted(message)}") if message
-          headers['WWW-Authenticate'] = hdr
+        auth_headers(status, code, message).each do |header, value|
+          controller.response.set_header(header, value)
         end
-        headers.each { |k, v| controller.response.set_header(k, v) }
         controller.render json: { error: code || 'unauthorized', message: message }, status: status
       end
 
@@ -69,6 +64,20 @@ module Verikloak
         else
           401
         end
+      end
+
+      # Build WWW-Authenticate headers when returning 401 responses.
+      # @param status [Integer]
+      # @param code [String, nil]
+      # @param message [String]
+      # @return [Hash<String, String>]
+      def auth_headers(status, code, message)
+        return {} unless status == 401
+
+        header = +'Bearer'
+        header << %( error="#{sanitize_quoted(code)}") if code
+        header << %( error_description="#{sanitize_quoted(message)}") if message
+        { 'WWW-Authenticate' => header }
       end
 
       # Sanitize a value for inclusion inside a quoted HTTP header parameter.

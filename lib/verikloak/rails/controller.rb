@@ -59,22 +59,14 @@ module Verikloak
       # Prefer Rack env; fall back to RequestStore when available.
       # @return [Hash, nil]
       def current_user_claims
-        env_claims = request.env['verikloak.user']
-        return env_claims unless env_claims.nil?
-        return ::RequestStore.store[:verikloak_user] if defined?(::RequestStore) && ::RequestStore.respond_to?(:store)
-
-        nil
+        _verikloak_fetch_request_context('verikloak.user', :verikloak_user)
       end
 
       # The raw bearer token used for the current request.
       # Prefer Rack env; fall back to RequestStore when available.
       # @return [String, nil]
       def current_token
-        env_token = request.env['verikloak.token']
-        return env_token unless env_token.nil?
-        return ::RequestStore.store[:verikloak_token] if defined?(::RequestStore) && ::RequestStore.respond_to?(:store)
-
-        nil
+        _verikloak_fetch_request_context('verikloak.token', :verikloak_token)
       end
 
       # The `sub` (subject) claim from the current user claims.
@@ -112,13 +104,14 @@ module Verikloak
       # Build log tags from request context with minimal branching and safe values.
       # @return [Array<String>]
       def _verikloak_build_log_tags
+        config = Verikloak::Rails.config
         tags = []
-        if Verikloak::Rails.config.logger_tags.include?(:request_id)
+        if config.logger_tags.include?(:request_id)
           rid = request.request_id || request.headers['X-Request-Id']
           rid = rid.to_s.gsub(/[\r\n]+/, ' ')
           tags << "req:#{rid}" unless rid.empty?
         end
-        if Verikloak::Rails.config.logger_tags.include?(:sub)
+        if config.logger_tags.include?(:sub)
           sub = current_subject
           if sub
             sanitized = sub.to_s.gsub(/[[:cntrl:]]+/, ' ').strip
@@ -126,6 +119,21 @@ module Verikloak
           end
         end
         tags
+      end
+
+      # Retrieve request context from Rack env or RequestStore.
+      # @param env_key [String]
+      # @param store_key [Symbol]
+      # @return [Object, nil]
+      def _verikloak_fetch_request_context(env_key, store_key)
+        env_value = request.env[env_key]
+        return env_value unless env_value.nil?
+        return unless defined?(::RequestStore) && ::RequestStore.respond_to?(:store)
+
+        store = ::RequestStore.store
+        return unless store.respond_to?(:[])
+
+        store[store_key]
       end
 
       # Write StandardError details to the controller or Rails logger when
