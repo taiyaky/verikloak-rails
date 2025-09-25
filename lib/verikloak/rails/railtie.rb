@@ -104,11 +104,7 @@ module Verikloak
         # @return [void]
         def log_missing_discovery_url_warning
           message = '[verikloak] discovery_url is not configured; skipping middleware insertion.'
-          if defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
-            ::Rails.logger.warn(message)
-          else
-            warn(message)
-          end
+          warn_with_fallback(message)
         end
 
         # Insert the base Verikloak::Middleware into the application middleware stack.
@@ -138,28 +134,34 @@ module Verikloak
         # @param base_options [Hash] options to pass to the middleware
         # @return [void]
         def insert_middleware_after(stack, base_options)
-          candidates = middleware_insert_after_candidates
-          inserted = false
-
-          candidates.each do |candidate|
-            next unless candidate
-
-            begin
-              stack.insert_after candidate,
-                                 ::Verikloak::Middleware,
-                                 **base_options
-              inserted = true
-              break
-            rescue StandardError => e
-              # Handle middleware insertion failures:
-              # - Rails 8+: RuntimeError for missing middleware
-              # - Earlier versions: ActionDispatch::MiddlewareStack::MiddlewareNotFound
-              log_middleware_insertion_warning(candidate, e)
-            end
+          inserted = middleware_insert_after_candidates.any? do |candidate|
+            try_insert_after(stack, candidate, base_options)
           end
 
           # Only use as fallback if insertion after a specific middleware failed
           stack.use ::Verikloak::Middleware, **base_options unless inserted
+        end
+
+        # Attempt to insert after a candidate middleware.
+        # Logs a warning and returns false when the candidate is not present.
+        #
+        # @param stack [ActionDispatch::MiddlewareStackProxy]
+        # @param candidate [Object, nil]
+        # @param base_options [Hash]
+        # @return [Boolean]
+        def try_insert_after(stack, candidate, base_options)
+          return false unless candidate
+
+          stack.insert_after candidate,
+                             ::Verikloak::Middleware,
+                             **base_options
+          true
+        rescue StandardError => e
+          # Handle middleware insertion failures:
+          # - Rails 8+: RuntimeError for missing middleware
+          # - Earlier versions: ActionDispatch::MiddlewareStack::MiddlewareNotFound
+          log_middleware_insertion_warning(candidate, e)
+          false
         end
 
         # Build list of middleware to try as insertion points.
@@ -187,8 +189,23 @@ module Verikloak
         def log_middleware_insertion_warning(candidate, error)
           candidate_name = candidate.is_a?(Class) ? candidate.name : candidate.class.name
           message = "[verikloak] Unable to insert after #{candidate_name}: #{error.message}"
-          if defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
-            ::Rails.logger.warn(message)
+          warn_with_fallback(message)
+        end
+
+        # Resolve the logger instance used for warnings, if present.
+        # @return [Object, nil]
+        def rails_logger
+          return unless defined?(::Rails) && ::Rails.respond_to?(:logger)
+
+          ::Rails.logger
+        end
+
+        # Log a warning using Rails.logger when available, otherwise fall back to Kernel#warn.
+        # @param message [String]
+        # @return [void]
+        def warn_with_fallback(message)
+          if (logger = rails_logger)
+            logger.warn(message)
           else
             warn(message)
           end
