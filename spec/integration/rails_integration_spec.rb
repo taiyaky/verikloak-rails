@@ -179,4 +179,93 @@ RSpec.describe 'Rails integration', type: :request do
       end
     end
   end
+
+  context 'when advanced middleware options are configured' do
+    it 'forwards options to the base middleware' do
+      Verikloak::Rails.configure do |config|
+        config.discovery_url = 'https://example/.well-known/openid-configuration'
+        config.audience = 'rails-api'
+        config.token_verify_options = { verify_iat: false }
+        config.decoder_cache_limit = 8
+        config.token_env_key = 'custom.token'
+        config.user_env_key = 'custom.user'
+      end
+
+      options = Verikloak::Rails.config.middleware_options
+      expect(options[:token_verify_options]).to eq(verify_iat: false)
+      expect(options[:decoder_cache_limit]).to eq(8)
+      expect(options[:token_env_key]).to eq('custom.token')
+      expect(options[:user_env_key]).to eq('custom.user')
+    end
+  end
+
+  context 'when bff_header_guard_options are provided' do
+    let(:rails_cfg) do
+      require 'active_support/ordered_options'
+      ActiveSupport::OrderedOptions.new
+    end
+
+    let(:stack) do
+      instance_double('MiddlewareStack').tap do |middleware|
+        allow(middleware).to receive(:insert_before)
+        allow(middleware).to receive(:insert_after)
+        allow(middleware).to receive(:use)
+      end
+    end
+
+    let(:app_config) do
+      instance_double('RailsConfig', verikloak: rails_cfg)
+    end
+
+    let(:app) do
+      instance_double('RailsApp', config: app_config, middleware: stack)
+    end
+
+    before do
+      rails_cfg.discovery_url = 'https://example/.well-known/openid-configuration'
+      rails_cfg.audience = 'rails-api'
+      rails_cfg.bff_header_guard_options = { trusted_proxies: ['127.0.0.1'], prefer_forwarded: false }
+
+      stub_const('::Verikloak::Bff', Module.new)
+      stub_const('::Verikloak::Bff::HeaderGuard', Class.new)
+
+      bff_config_class = Class.new do
+        attr_accessor :trusted_proxies, :prefer_forwarded
+
+        def initialize
+          @trusted_proxies = []
+          @prefer_forwarded = true
+        end
+
+        def dup
+          copy = self.class.new
+          copy.trusted_proxies = @trusted_proxies.dup
+          copy.prefer_forwarded = @prefer_forwarded
+          copy
+        end
+      end
+
+      bff_config = bff_config_class.new
+
+      stub_const('::Verikloak::BFF', Module.new)
+      ::Verikloak::BFF.singleton_class.class_eval do
+        define_method(:configure) do |&block|
+          block.call(bff_config) if block
+          bff_config
+        end
+
+        define_method(:config) do
+          bff_config
+        end
+      end
+    end
+
+    it 'bridges configuration into verikloak-bff' do
+      ::Verikloak::Rails::Railtie.send(:configure_middleware, app)
+
+      config = ::Verikloak::BFF.config
+      expect(config.trusted_proxies).to eq(['127.0.0.1'])
+      expect(config.prefer_forwarded).to be(false)
+    end
+  end
 end
