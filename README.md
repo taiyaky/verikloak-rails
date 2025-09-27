@@ -48,6 +48,33 @@ Then configure `config/initializers/verikloak.rb`.
 | `current_user_claims` | `verikloak.user` | `:verikloak_user` | Uses RequestStore only when available |
 | `current_token` | `verikloak.token` | `:verikloak_token` | Uses RequestStore only when available |
 
+#### Priority and Behavior Details
+
+The helpers follow this priority order:
+
+1. **Primary**: `request.env` (Rack environment) - Set directly by `Verikloak::Middleware`
+2. **Fallback**: `RequestStore.store` (when available) - Thread-local storage for background jobs
+
+**Examples:**
+
+```ruby
+# In a controller action (normal case)
+current_user_claims  # reads from request.env['verikloak.user']
+current_token        # reads from request.env['verikloak.token']
+
+# In a background job triggered during request
+# (when RequestStore gem is present and middleware has mirrored values)
+current_user_claims  # falls back to RequestStore.store[:verikloak_user]
+current_token        # falls back to RequestStore.store[:verikloak_token]
+
+# When RequestStore is not available or disabled
+current_user_claims  # returns nil if not in request.env
+current_token        # returns nil if not in request.env
+```
+
+**Custom Environment Keys**: If you configure custom `token_env_key` or `user_env_key`,
+the helpers automatically adapt to use those keys instead of the defaults.
+
 ### Example Controller
 
 ```ruby
@@ -99,6 +126,12 @@ When `verikloak-bff` is on the load path, `verikloak-rails` automatically insert
 
 Use verikloak-bff alongside this gem when you front Rails with a BFF/proxy such as oauth2-proxy and need to enforce trusted forwarding and header consistency.
 
+Assign `config.verikloak.bff_header_guard_options` to customize the guard before
+it is inserted. Provide either a Hash (merged via attribute writers) or a block/
+callable that receives the `Verikloak::BFF.configure` object so you can set
+advanced options such as trusted proxies, forwarded header names, or custom log
+hooks directly from the Rails initializer.
+
 ## Configuration (initializer)
 ### Keys
 Keys under `config.verikloak`:
@@ -120,6 +153,11 @@ Keys under `config.verikloak`:
 | `auto_insert_bff_header_guard` | Boolean | Auto insert `Verikloak::Bff::HeaderGuard` when the gem is present | `true` |
 | `bff_header_guard_insert_before` | Object/String/Symbol | Insert the header guard before this middleware (`Verikloak::Middleware` when `nil`) | `nil` |
 | `bff_header_guard_insert_after` | Object/String/Symbol | Insert the header guard after this middleware | `nil` |
+| `token_verify_options` | Hash | Additional options forwarded to `Verikloak::TokenDecoder` (e.g. `{ verify_iat: false }`) | `{}` |
+| `decoder_cache_limit` | Integer or nil | Overrides the cached decoder count before eviction | `nil` (verikloak default `128`) |
+| `token_env_key` | String | Custom Rack env key that stores the Bearer token | `nil` (middleware default `verikloak.token`) |
+| `user_env_key` | String | Custom Rack env key that stores decoded claims | `nil` (middleware default `verikloak.user`) |
+| `bff_header_guard_options` | Hash or Proc | Forwarded to `Verikloak::BFF.configure` prior to middleware insertion | `{}` |
 
 Environment variable examples are in the generated initializer.
 

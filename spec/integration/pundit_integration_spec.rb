@@ -4,12 +4,7 @@ require 'spec_helper'
 require 'verikloak/rails'
 
 RSpec.describe 'Pundit integration auto-disable behavior' do
-  # Configuration keys to copy from Rails configuration
-  CONFIG_KEYS = %i[discovery_url audience issuer leeway skip_paths
-                   logger_tags error_renderer auto_include_controller
-                   render_500_json rescue_pundit middleware_insert_before
-                   middleware_insert_after auto_insert_bff_header_guard
-                   bff_header_guard_insert_before bff_header_guard_insert_after].freeze
+  CONFIG_KEYS = Verikloak::Rails::Railtie::CONFIG_KEYS
   before do
     Verikloak::Rails.reset!
   end

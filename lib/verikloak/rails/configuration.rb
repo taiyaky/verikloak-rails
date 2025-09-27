@@ -59,7 +59,9 @@ module Verikloak
                     :render_500_json, :rescue_pundit,
                     :middleware_insert_before, :middleware_insert_after,
                     :auto_insert_bff_header_guard,
-                    :bff_header_guard_insert_before, :bff_header_guard_insert_after
+                    :bff_header_guard_insert_before, :bff_header_guard_insert_after,
+                    :token_verify_options, :decoder_cache_limit,
+                    :token_env_key, :user_env_key, :bff_header_guard_options
 
       # Initialize configuration with sensible defaults for Rails apps.
       # @return [void]
@@ -79,6 +81,11 @@ module Verikloak
         @auto_insert_bff_header_guard = true
         @bff_header_guard_insert_before = nil
         @bff_header_guard_insert_after = nil
+        @token_verify_options = {}
+        @decoder_cache_limit = nil
+        @token_env_key = nil
+        @user_env_key = nil
+        @bff_header_guard_options = {}
       end
 
       # Options forwarded to the base Verikloak Rack middleware.
@@ -92,7 +99,11 @@ module Verikloak
           audience: audience,
           issuer: issuer,
           leeway: leeway,
-          skip_paths: skip_paths
+          skip_paths: skip_paths,
+          token_verify_options: token_verify_options,
+          decoder_cache_limit: decoder_cache_limit,
+          token_env_key: token_env_key,
+          user_env_key: user_env_key
         }.compact
       end
     end

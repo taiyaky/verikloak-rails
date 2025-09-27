@@ -11,13 +11,22 @@ module Verikloak
     # - Inserts base `Verikloak::Middleware`
     # - Auto-includes controller concern when enabled
     class Railtie < ::Rails::Railtie
+      CONFIG_KEYS = %i[
+        discovery_url audience issuer leeway skip_paths
+        logger_tags error_renderer auto_include_controller
+        render_500_json rescue_pundit middleware_insert_before
+        middleware_insert_after auto_insert_bff_header_guard
+        bff_header_guard_insert_before bff_header_guard_insert_after
+        token_verify_options decoder_cache_limit token_env_key user_env_key
+        bff_header_guard_options
+      ].freeze
+
       config.verikloak = ActiveSupport::OrderedOptions.new
 
       # Apply configuration and insert middleware.
       # @return [void]
       initializer 'verikloak.configure' do |app|
-        stack = ::Verikloak::Rails::Railtie.send(:configure_middleware, app)
-        ::Verikloak::Rails::Railtie.send(:configure_bff_guard, stack) if stack
+        ::Verikloak::Rails::Railtie.send(:configure_middleware, app)
       end
 
       # Optionally include the controller concern when ActionController loads.
@@ -37,13 +46,17 @@ module Verikloak
         # @return [ActionDispatch::MiddlewareStackProxy] configured middleware stack
         def configure_middleware(app)
           apply_configuration(app)
+          configure_bff_library
 
           unless discovery_url_present?
             log_missing_discovery_url_warning
             return
           end
 
-          insert_base_middleware(app)
+          stack = insert_base_middleware(app)
+          configure_bff_guard(stack) if stack
+
+          stack
         end
 
         # Insert the optional HeaderGuard middleware when verikloak-bff is present.
@@ -65,6 +78,33 @@ module Verikloak
           end
         end
 
+        # Apply configuration options to the verikloak-bff namespace.
+        # Supports hash-like and callable inputs.
+        #
+        # @param target [Module] Verikloak::BFF or Verikloak::Bff namespace
+        # @param options [Hash, Proc, #to_h]
+        # @return [void]
+        def apply_bff_configuration(target, options)
+          if options.respond_to?(:call)
+            target.configure(&options)
+            return
+          end
+
+          hash = options.respond_to?(:to_h) ? options.to_h : options
+          return unless hash.respond_to?(:each)
+
+          entries = hash.transform_keys(&:to_sym)
+
+          return if entries.empty?
+
+          target.configure do |config|
+            entries.each do |key, value|
+              writer = "#{key}="
+              config.public_send(writer, value) if config.respond_to?(writer)
+            end
+          end
+        end
+
         # Sync configuration from the Rails application into Verikloak::Rails.
         #
         # @param app [Rails::Application]
@@ -72,15 +112,31 @@ module Verikloak
         def apply_configuration(app)
           Verikloak::Rails.configure do |c|
             rails_cfg = app.config.verikloak
-            %i[discovery_url audience issuer leeway skip_paths
-               logger_tags error_renderer auto_include_controller
-               render_500_json rescue_pundit middleware_insert_before
-               middleware_insert_after auto_insert_bff_header_guard
-               bff_header_guard_insert_before bff_header_guard_insert_after].each do |key|
+            CONFIG_KEYS.each do |key|
               c.send("#{key}=", rails_cfg[key]) if rails_cfg.key?(key)
             end
             c.rescue_pundit = false if !rails_cfg.key?(:rescue_pundit) && defined?(::Verikloak::Pundit)
           end
+        end
+
+        # Configure the verikloak-bff library when options are supplied.
+        #
+        # @return [void]
+        def configure_bff_library
+          options = Verikloak::Rails.config.bff_header_guard_options
+          return if options.nil? || (options.respond_to?(:empty?) && options.empty?)
+
+          target = if defined?(::Verikloak::BFF) && ::Verikloak::BFF.respond_to?(:configure)
+                     ::Verikloak::BFF
+                   elsif defined?(::Verikloak::Bff) && ::Verikloak::Bff.respond_to?(:configure)
+                     ::Verikloak::Bff
+                   end
+
+          return unless target
+
+          apply_bff_configuration(target, options)
+        rescue StandardError => e
+          warn_with_fallback("[verikloak] Failed to apply BFF configuration: #{e.message}")
         end
 
         # Check if discovery_url is present and valid.
@@ -102,11 +158,7 @@ module Verikloak
         # @return [void]
         def log_missing_discovery_url_warning
           message = '[verikloak] discovery_url is not configured; skipping middleware insertion.'
-          if defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
-            ::Rails.logger.warn(message)
-          else
-            warn(message)
-          end
+          warn_with_fallback(message)
         end
 
         # Insert the base Verikloak::Middleware into the application middleware stack.
@@ -136,28 +188,34 @@ module Verikloak
         # @param base_options [Hash] options to pass to the middleware
         # @return [void]
         def insert_middleware_after(stack, base_options)
-          candidates = middleware_insert_after_candidates
-          inserted = false
-
-          candidates.each do |candidate|
-            next unless candidate
-
-            begin
-              stack.insert_after candidate,
-                                 ::Verikloak::Middleware,
-                                 **base_options
-              inserted = true
-              break
-            rescue StandardError => e
-              # Handle middleware insertion failures:
-              # - Rails 8+: RuntimeError for missing middleware
-              # - Earlier versions: ActionDispatch::MiddlewareStack::MiddlewareNotFound
-              log_middleware_insertion_warning(candidate, e)
-            end
+          inserted = middleware_insert_after_candidates.any? do |candidate|
+            try_insert_after(stack, candidate, base_options)
           end
 
           # Only use as fallback if insertion after a specific middleware failed
           stack.use ::Verikloak::Middleware, **base_options unless inserted
+        end
+
+        # Attempt to insert after a candidate middleware.
+        # Logs a warning and returns false when the candidate is not present.
+        #
+        # @param stack [ActionDispatch::MiddlewareStackProxy]
+        # @param candidate [Object, nil]
+        # @param base_options [Hash]
+        # @return [Boolean]
+        def try_insert_after(stack, candidate, base_options)
+          return false unless candidate
+
+          stack.insert_after candidate,
+                             ::Verikloak::Middleware,
+                             **base_options
+          true
+        rescue StandardError => e
+          # Handle middleware insertion failures:
+          # - Rails 8+: RuntimeError for missing middleware
+          # - Earlier versions: ActionDispatch::MiddlewareStack::MiddlewareNotFound
+          log_middleware_insertion_warning(candidate, e)
+          false
         end
 
         # Build list of middleware to try as insertion points.
@@ -185,8 +243,23 @@ module Verikloak
         def log_middleware_insertion_warning(candidate, error)
           candidate_name = candidate.is_a?(Class) ? candidate.name : candidate.class.name
           message = "[verikloak] Unable to insert after #{candidate_name}: #{error.message}"
-          if defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
-            ::Rails.logger.warn(message)
+          warn_with_fallback(message)
+        end
+
+        # Resolve the logger instance used for warnings, if present.
+        # @return [Object, nil]
+        def rails_logger
+          return unless defined?(::Rails) && ::Rails.respond_to?(:logger)
+
+          ::Rails.logger
+        end
+
+        # Log a warning using Rails.logger when available, otherwise fall back to Kernel#warn.
+        # @param message [String]
+        # @return [void]
+        def warn_with_fallback(message)
+          if (logger = rails_logger)
+            logger.warn(message)
           else
             warn(message)
           end

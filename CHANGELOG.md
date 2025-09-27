@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.8] - 2025-01-03
+
+### Changed
+- Refactor controller helpers to use shared `_verikloak_fetch_request_context` method for consistent RequestStore fallback handling
+- Optimize configuration access by caching `Verikloak::Rails.config` in log tag building
+- Extract `auth_headers` method in ErrorRenderer for reusable WWW-Authenticate header generation
+- Streamline middleware configuration by inlining BFF guard insertion into main configuration flow
+- Improve middleware insertion error handling with `try_insert_after` and `warn_with_fallback` utilities
+
+### Added
+- Support for advanced middleware options: `token_verify_options`, `decoder_cache_limit`, `token_env_key`, `user_env_key`
+- `bff_header_guard_options` configuration for verikloak-bff library integration
+- Centralized `CONFIG_KEYS` constant in Railtie for consistent configuration management
+- Enhanced README documentation with RequestStore vs Rack environment priority examples
+
+### Fixed
+- Only call `configure_bff_guard` when middleware stack is successfully created
+- Replace `each_with_object` with `transform_keys` for better Ruby style compliance
+
 ## [0.2.7] - 2025-09-23
 
 ### Fixed
