@@ -24,8 +24,9 @@ module Verikloak
       config.verikloak = ActiveSupport::OrderedOptions.new
 
       # Apply configuration and insert middleware.
+      # Runs after config/initializers/*.rb so user settings take effect.
       # @return [void]
-      initializer 'verikloak.configure' do |app|
+      initializer 'verikloak.configure', after: :load_config_initializers do |app|
         ::Verikloak::Rails::Railtie.send(:configure_middleware, app)
       end
 

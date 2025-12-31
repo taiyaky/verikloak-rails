@@ -7,7 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.2.8] - 2025-01-03
+## [0.2.9] - 2025-12-31
+
+### Fixed
+- **BREAKING FIX**: Railtie initializer now runs `after: :load_config_initializers` to ensure
+  `config/initializers/verikloak.rb` settings are applied before middleware insertion
+  - Previously, the initializer ran before `load_config_initializers`, causing settings in
+    `config/initializers/*.rb` to be ignored
+  - This was particularly problematic in Rails 8.x where initialization order is stricter
+
+### Changed
+- **Dependency**: Now requires `verikloak >= 0.3.0` (was `>= 0.2.0`)
+  - This is necessary because the `issuer` parameter in `middleware_options` is now supported
+    by verikloak 0.3.0+
+
+### Migration Guide
+
+If you were using the workaround of placing Verikloak configuration in `config/application.rb`,
+you can now move it back to `config/initializers/verikloak.rb`:
+
+```ruby
+# config/initializers/verikloak.rb (now works correctly)
+Rails.application.configure do
+  config.verikloak.discovery_url = ENV['KEYCLOAK_DISCOVERY_URL']
+  config.verikloak.audience = ENV['KEYCLOAK_AUDIENCE']
+  config.verikloak.issuer = ENV['KEYCLOAK_ISSUER']
+end
+```
+
+## [0.2.8] - 2025-10-03
 
 ### Changed
 - Refactor controller helpers to use shared `_verikloak_fetch_request_context` method for consistent RequestStore fallback handling
