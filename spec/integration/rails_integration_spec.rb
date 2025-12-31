@@ -54,9 +54,9 @@ end
 
 # Define a minimal BFF header guard to exercise auto-insertion behavior.
 module ::Verikloak; end unless defined?(::Verikloak)
-module ::Verikloak::Bff; end unless defined?(::Verikloak::Bff)
-unless defined?(::Verikloak::Bff::HeaderGuard)
-  class ::Verikloak::Bff::HeaderGuard
+module ::Verikloak::BFF; end unless defined?(::Verikloak::BFF)
+unless defined?(::Verikloak::BFF::HeaderGuard)
+  class ::Verikloak::BFF::HeaderGuard
     class << self
       attr_accessor :last_env
     end
@@ -199,6 +199,31 @@ RSpec.describe 'Rails integration', type: :request do
     end
   end
 
+  context 'when issuer parameter is configured' do
+    it 'forwards issuer to middleware_options when configured' do
+      Verikloak::Rails.configure do |config|
+        config.discovery_url = 'https://example/.well-known/openid-configuration'
+        config.audience = 'rails-api'
+        config.issuer = 'https://custom-issuer.example.com'
+      end
+
+      options = Verikloak::Rails.config.middleware_options
+      expect(options[:issuer]).to eq('https://custom-issuer.example.com')
+    end
+
+    it 'does not include issuer in middleware_options when not configured' do
+      Verikloak::Rails.configure do |config|
+        config.discovery_url = 'https://example/.well-known/openid-configuration'
+        config.audience = 'rails-api'
+        config.issuer = nil
+      end
+
+      options = Verikloak::Rails.config.middleware_options
+      # middleware_options uses .compact, so nil values are excluded
+      expect(options).not_to have_key(:issuer)
+    end
+  end
+
   context 'when bff_header_guard_options are provided' do
     let(:rails_cfg) do
       require 'active_support/ordered_options'
@@ -226,8 +251,7 @@ RSpec.describe 'Rails integration', type: :request do
       rails_cfg.audience = 'rails-api'
       rails_cfg.bff_header_guard_options = { trusted_proxies: ['127.0.0.1'], prefer_forwarded: false }
 
-      stub_const('::Verikloak::Bff', Module.new)
-      stub_const('::Verikloak::Bff::HeaderGuard', Class.new)
+      stub_const('::Verikloak::BFF::HeaderGuard', Class.new)
 
       bff_config_class = Class.new do
         attr_accessor :trusted_proxies, :prefer_forwarded
@@ -247,15 +271,17 @@ RSpec.describe 'Rails integration', type: :request do
 
       bff_config = bff_config_class.new
 
-      stub_const('::Verikloak::BFF', Module.new)
-      ::Verikloak::BFF.singleton_class.class_eval do
-        define_method(:configure) do |&block|
-          block.call(bff_config) if block
-          bff_config
-        end
+      # Ensure ::Verikloak::BFF is properly configured for the test
+      unless ::Verikloak::BFF.respond_to?(:configure)
+        ::Verikloak::BFF.singleton_class.class_eval do
+          define_method(:configure) do |&block|
+            block.call(bff_config) if block
+            bff_config
+          end
 
-        define_method(:config) do
-          bff_config
+          define_method(:config) do
+            bff_config
+          end
         end
       end
     end
