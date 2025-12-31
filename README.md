@@ -21,7 +21,7 @@ Provide drop-in, token-based authentication for Rails APIs via Verikloak (OIDC d
 ## Compatibility
 - Ruby: >= 3.1
 - Rails: 6.1 – 8.x
-- verikloak: >= 0.2.0, < 1.0.0
+- verikloak: >= 0.3.0, < 1.0.0
 
 ## Quick Start
 ```bash
