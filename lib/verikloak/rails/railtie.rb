@@ -66,16 +66,16 @@ module Verikloak
         # @return [void]
         def configure_bff_guard(stack)
           return unless Verikloak::Rails.config.auto_insert_bff_header_guard
-          return unless defined?(::Verikloak::Bff::HeaderGuard)
+          return unless defined?(::Verikloak::BFF::HeaderGuard)
 
           guard_before = Verikloak::Rails.config.bff_header_guard_insert_before
           guard_after = Verikloak::Rails.config.bff_header_guard_insert_after
           if guard_before
-            stack.insert_before guard_before, ::Verikloak::Bff::HeaderGuard
+            stack.insert_before guard_before, ::Verikloak::BFF::HeaderGuard
           elsif guard_after
-            stack.insert_after guard_after, ::Verikloak::Bff::HeaderGuard
+            stack.insert_after guard_after, ::Verikloak::BFF::HeaderGuard
           else
-            stack.insert_before ::Verikloak::Middleware, ::Verikloak::Bff::HeaderGuard
+            stack.insert_before ::Verikloak::Middleware, ::Verikloak::BFF::HeaderGuard
           end
         end
 
@@ -126,16 +126,9 @@ module Verikloak
         def configure_bff_library
           options = Verikloak::Rails.config.bff_header_guard_options
           return if options.nil? || (options.respond_to?(:empty?) && options.empty?)
+          return unless defined?(::Verikloak::BFF) && ::Verikloak::BFF.respond_to?(:configure)
 
-          target = if defined?(::Verikloak::BFF) && ::Verikloak::BFF.respond_to?(:configure)
-                     ::Verikloak::BFF
-                   elsif defined?(::Verikloak::Bff) && ::Verikloak::Bff.respond_to?(:configure)
-                     ::Verikloak::Bff
-                   end
-
-          return unless target
-
-          apply_bff_configuration(target, options)
+          apply_bff_configuration(::Verikloak::BFF, options)
         rescue StandardError => e
           warn_with_fallback("[verikloak] Failed to apply BFF configuration: #{e.message}")
         end

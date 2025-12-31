@@ -151,4 +151,98 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
       end
     end
   end
+
+  describe '.configure_bff_guard' do
+    let(:railtie) { described_class }
+    let(:middleware_stack) { double('MiddlewareStack') }
+
+    before do
+      Verikloak::Rails.reset!
+    end
+
+    context 'when Verikloak::BFF::HeaderGuard is defined' do
+      before do
+        # Define the BFF namespace and HeaderGuard class
+        stub_const('::Verikloak::BFF', Module.new)
+        stub_const('::Verikloak::BFF::HeaderGuard', Class.new)
+      end
+
+      context 'when auto_insert_bff_header_guard is enabled' do
+        before do
+          Verikloak::Rails.configure do |config|
+            config.auto_insert_bff_header_guard = true
+          end
+        end
+
+        it 'inserts HeaderGuard before Verikloak::Middleware by default' do
+          expect(middleware_stack).to receive(:insert_before)
+            .with(::Verikloak::Middleware, ::Verikloak::BFF::HeaderGuard)
+
+          railtie.send(:configure_bff_guard, middleware_stack)
+        end
+
+        it 'inserts HeaderGuard before specified middleware when bff_header_guard_insert_before is set' do
+          custom_middleware = Class.new
+          stub_const('CustomMiddleware', custom_middleware)
+
+          Verikloak::Rails.configure do |config|
+            config.auto_insert_bff_header_guard = true
+            config.bff_header_guard_insert_before = custom_middleware
+          end
+
+          expect(middleware_stack).to receive(:insert_before)
+            .with(custom_middleware, ::Verikloak::BFF::HeaderGuard)
+
+          railtie.send(:configure_bff_guard, middleware_stack)
+        end
+
+        it 'inserts HeaderGuard after specified middleware when bff_header_guard_insert_after is set' do
+          custom_middleware = Class.new
+          stub_const('CustomMiddleware', custom_middleware)
+
+          Verikloak::Rails.configure do |config|
+            config.auto_insert_bff_header_guard = true
+            config.bff_header_guard_insert_before = nil
+            config.bff_header_guard_insert_after = custom_middleware
+          end
+
+          expect(middleware_stack).to receive(:insert_after)
+            .with(custom_middleware, ::Verikloak::BFF::HeaderGuard)
+
+          railtie.send(:configure_bff_guard, middleware_stack)
+        end
+      end
+
+      context 'when auto_insert_bff_header_guard is disabled' do
+        before do
+          Verikloak::Rails.configure do |config|
+            config.auto_insert_bff_header_guard = false
+          end
+        end
+
+        it 'does not insert HeaderGuard' do
+          expect(middleware_stack).not_to receive(:insert_before)
+          expect(middleware_stack).not_to receive(:insert_after)
+
+          railtie.send(:configure_bff_guard, middleware_stack)
+        end
+      end
+    end
+
+    context 'when Verikloak::BFF::HeaderGuard is not defined' do
+      it 'does not attempt to insert any middleware' do
+        Verikloak::Rails.configure do |config|
+          config.auto_insert_bff_header_guard = true
+        end
+
+        # Ensure BFF::HeaderGuard is not defined
+        hide_const('::Verikloak::BFF::HeaderGuard') if defined?(::Verikloak::BFF::HeaderGuard)
+
+        expect(middleware_stack).not_to receive(:insert_before)
+        expect(middleware_stack).not_to receive(:insert_after)
+
+        railtie.send(:configure_bff_guard, middleware_stack)
+      end
+    end
+  end
 end

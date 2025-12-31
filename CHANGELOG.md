@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] - 2026-01-01
+
+### Changed
+- **BFF HeaderGuard detection**: Now only supports `Verikloak::BFF::HeaderGuard` (uppercase)
+  - Removed fallback support for `Verikloak::Bff::HeaderGuard` (lowercase)
+  - This simplifies the codebase and aligns with verikloak-bff's official namespace
+- `configure_bff_library` method simplified to only target `Verikloak::BFF` namespace
+
+### Added
+- Comprehensive test coverage for `configure_bff_guard` method
+  - Tests for default insertion position (before `Verikloak::Middleware`)
+  - Tests for custom insertion positions (`bff_header_guard_insert_before`, `bff_header_guard_insert_after`)
+  - Tests for disabled state (`auto_insert_bff_header_guard = false`)
+  - Tests for undefined `HeaderGuard` scenarios
+
+---
+
 ## [0.2.9] - 2025-12-31
 
 ### Fixed
