@@ -67,12 +67,23 @@ module Verikloak
         end
 
         # Insert the optional HeaderGuard middleware when verikloak-bff is present.
+        # Skips insertion with a warning if trusted_proxies is not configured and
+        # disabled is not explicitly set to true.
         #
         # @param stack [ActionDispatch::MiddlewareStackProxy]
         # @return [void]
         def configure_bff_guard(stack)
           return unless Verikloak::Rails.config.auto_insert_bff_header_guard
           return unless defined?(::Verikloak::BFF::HeaderGuard)
+
+          # Check if BFF configuration is valid before inserting
+          unless bff_configuration_valid?
+            warn_with_fallback(
+              '[verikloak] Skipping BFF::HeaderGuard insertion: trusted_proxies not configured. ' \
+              'Set trusted_proxies in bff_header_guard_options to enable header validation.'
+            )
+            return
+          end
 
           guard_before = Verikloak::Rails.config.bff_header_guard_insert_before
           guard_after = Verikloak::Rails.config.bff_header_guard_insert_after
@@ -83,6 +94,30 @@ module Verikloak
           else
             stack.insert_before ::Verikloak::Middleware, ::Verikloak::BFF::HeaderGuard
           end
+        end
+
+        # Check if BFF configuration is valid for middleware insertion.
+        # Returns true if:
+        #   - disabled: true is set (HeaderGuard will be inserted but internally disabled), OR
+        #   - trusted_proxies is configured with at least one entry
+        #
+        # @return [Boolean]
+        def bff_configuration_valid?
+          return true unless defined?(::Verikloak::BFF)
+          return true unless ::Verikloak::BFF.respond_to?(:config)
+
+          bff_config = ::Verikloak::BFF.config
+
+          # If disabled is explicitly set to true, allow insertion
+          # (HeaderGuard will be inserted but internally disabled)
+          return true if bff_config.respond_to?(:disabled) && bff_config.disabled
+
+          # For legacy versions without trusted_proxies method, allow insertion
+          return true unless bff_config.respond_to?(:trusted_proxies)
+
+          # Require trusted_proxies to be a non-empty Array
+          proxies = bff_config.trusted_proxies
+          proxies.is_a?(Array) && !proxies.empty?
         end
 
         # Apply configuration options to the verikloak-bff namespace.
