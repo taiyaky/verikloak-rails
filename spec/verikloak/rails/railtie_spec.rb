@@ -134,7 +134,6 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
   end
 
   describe '.configure_bff_guard' do
-    let(:railtie) { described_class }
     let(:middleware_stack) { double('MiddlewareStack') }
 
     before do
@@ -159,7 +158,7 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
           expect(middleware_stack).to receive(:insert_before)
             .with(::Verikloak::Middleware, ::Verikloak::BFF::HeaderGuard)
 
-          railtie.send(:configure_bff_guard, middleware_stack)
+          Verikloak::Rails::BffConfigurator.configure_bff_guard(middleware_stack)
         end
 
         it 'inserts HeaderGuard before specified middleware when bff_header_guard_insert_before is set' do
@@ -174,7 +173,7 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
           expect(middleware_stack).to receive(:insert_before)
             .with(custom_middleware, ::Verikloak::BFF::HeaderGuard)
 
-          railtie.send(:configure_bff_guard, middleware_stack)
+          Verikloak::Rails::BffConfigurator.configure_bff_guard(middleware_stack)
         end
 
         it 'inserts HeaderGuard after specified middleware when bff_header_guard_insert_after is set' do
@@ -190,7 +189,7 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
           expect(middleware_stack).to receive(:insert_after)
             .with(custom_middleware, ::Verikloak::BFF::HeaderGuard)
 
-          railtie.send(:configure_bff_guard, middleware_stack)
+          Verikloak::Rails::BffConfigurator.configure_bff_guard(middleware_stack)
         end
       end
 
@@ -205,7 +204,7 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
           expect(middleware_stack).not_to receive(:insert_before)
           expect(middleware_stack).not_to receive(:insert_after)
 
-          railtie.send(:configure_bff_guard, middleware_stack)
+          Verikloak::Rails::BffConfigurator.configure_bff_guard(middleware_stack)
         end
       end
     end
@@ -222,13 +221,12 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
         expect(middleware_stack).not_to receive(:insert_before)
         expect(middleware_stack).not_to receive(:insert_after)
 
-        railtie.send(:configure_bff_guard, middleware_stack)
+        Verikloak::Rails::BffConfigurator.configure_bff_guard(middleware_stack)
       end
     end
   end
 
-  describe '.bff_configuration_valid?' do
-    let(:railtie) { described_class }
+  describe 'BffConfigurator.configuration_valid?' do
     let(:bff_config) { double('BffConfig') }
 
     before do
@@ -242,7 +240,7 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
     context 'when Verikloak::BFF is not defined' do
       it 'returns true' do
         hide_const('::Verikloak::BFF')
-        expect(railtie.send(:bff_configuration_valid?)).to be true
+        expect(Verikloak::Rails::BffConfigurator.configuration_valid?).to be true
       end
     end
 
@@ -251,7 +249,7 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
         allow(bff_config).to receive(:respond_to?).with(:disabled).and_return(true)
         allow(bff_config).to receive(:disabled).and_return(true)
 
-        expect(railtie.send(:bff_configuration_valid?)).to be true
+        expect(Verikloak::Rails::BffConfigurator.configuration_valid?).to be true
       end
     end
 
@@ -265,7 +263,7 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
         it 'returns true' do
           allow(bff_config).to receive(:respond_to?).with(:trusted_proxies).and_return(false)
 
-          expect(railtie.send(:bff_configuration_valid?)).to be true
+          expect(Verikloak::Rails::BffConfigurator.configuration_valid?).to be true
         end
       end
 
@@ -274,7 +272,7 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
           allow(bff_config).to receive(:respond_to?).with(:trusted_proxies).and_return(true)
           allow(bff_config).to receive(:trusted_proxies).and_return(['10.0.0.0/8'])
 
-          expect(railtie.send(:bff_configuration_valid?)).to be true
+          expect(Verikloak::Rails::BffConfigurator.configuration_valid?).to be true
         end
       end
 
@@ -283,7 +281,7 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
           allow(bff_config).to receive(:respond_to?).with(:trusted_proxies).and_return(true)
           allow(bff_config).to receive(:trusted_proxies).and_return([])
 
-          expect(railtie.send(:bff_configuration_valid?)).to be false
+          expect(Verikloak::Rails::BffConfigurator.configuration_valid?).to be false
         end
       end
 
@@ -292,7 +290,7 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
           allow(bff_config).to receive(:respond_to?).with(:trusted_proxies).and_return(true)
           allow(bff_config).to receive(:trusted_proxies).and_return(nil)
 
-          expect(railtie.send(:bff_configuration_valid?)).to be false
+          expect(Verikloak::Rails::BffConfigurator.configuration_valid?).to be false
         end
       end
 
@@ -301,21 +299,20 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
           allow(bff_config).to receive(:respond_to?).with(:trusted_proxies).and_return(true)
           allow(bff_config).to receive(:trusted_proxies).and_return(Set.new(['10.0.0.0/8']))
 
-          expect(railtie.send(:bff_configuration_valid?)).to be false
+          expect(Verikloak::Rails::BffConfigurator.configuration_valid?).to be false
         end
 
         it 'returns false for String' do
           allow(bff_config).to receive(:respond_to?).with(:trusted_proxies).and_return(true)
           allow(bff_config).to receive(:trusted_proxies).and_return('10.0.0.0/8')
 
-          expect(railtie.send(:bff_configuration_valid?)).to be false
+          expect(Verikloak::Rails::BffConfigurator.configuration_valid?).to be false
         end
       end
     end
   end
 
-  describe '.configure_bff_guard with bff_configuration_valid? integration' do
-    let(:railtie) { described_class }
+  describe '.configure_bff_guard with configuration_valid? integration' do
     let(:middleware_stack) { double('MiddlewareStack') }
     let(:bff_config) { double('BffConfig') }
 
@@ -345,12 +342,12 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
         expect(middleware_stack).not_to receive(:insert_before)
         expect(middleware_stack).not_to receive(:insert_after)
 
-        expect(railtie).to receive(:warn_with_fallback).with(
+        expect(Verikloak::Rails::RailtieLogger).to receive(:warn).with(
           '[verikloak] Skipping BFF::HeaderGuard insertion: trusted_proxies not configured. ' \
           'Set trusted_proxies in bff_header_guard_options to enable header validation.'
         )
 
-        railtie.send(:configure_bff_guard, middleware_stack)
+        Verikloak::Rails::BffConfigurator.configure_bff_guard(middleware_stack)
       end
     end
 
@@ -364,7 +361,7 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
         expect(middleware_stack).to receive(:insert_before)
           .with(::Verikloak::Middleware, ::Verikloak::BFF::HeaderGuard)
 
-        railtie.send(:configure_bff_guard, middleware_stack)
+        Verikloak::Rails::BffConfigurator.configure_bff_guard(middleware_stack)
       end
     end
 
@@ -380,7 +377,7 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
         expect(middleware_stack).to receive(:insert_before)
           .with(::Verikloak::Middleware, ::Verikloak::BFF::HeaderGuard)
 
-        railtie.send(:configure_bff_guard, middleware_stack)
+        Verikloak::Rails::BffConfigurator.configure_bff_guard(middleware_stack)
       end
     end
   end
