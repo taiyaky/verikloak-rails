@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.2] - 2026-01-01
+
+### Changed
+- **BFF HeaderGuard safe insertion**: Railtie now validates BFF configuration before inserting `HeaderGuard`. If `trusted_proxies` is not configured (and `disabled` is not set to `true`), insertion is skipped with a warning instead of raising an error.
+  - This allows applications to start during initial setup before BFF configuration is complete.
+  - A clear warning message guides users to configure `trusted_proxies` to enable header validation.
+  - When `disabled: true` is set, HeaderGuard is inserted but internally disabled.
+- **Railtie refactoring**: Extracted BFF configuration logic into `BffConfigurator` module and logging utilities into `RailtieLogger` module to improve maintainability.
+
+### Added
+- `BffConfigurator` module for BFF-related middleware configuration.
+- `RailtieLogger` module for consistent logging across Railtie operations.
+- Comprehensive test coverage for `BffConfigurator.configuration_valid?` method.
+
+---
+
 ## [0.3.1] - 2026-01-01
 
 ### Added

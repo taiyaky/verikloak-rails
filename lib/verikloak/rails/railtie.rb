@@ -2,6 +2,8 @@
 
 require 'rails/railtie'
 require 'verikloak/middleware'
+require_relative 'railtie_logger'
+require_relative 'bff_configurator'
 
 module Verikloak
   module Rails
@@ -53,7 +55,7 @@ module Verikloak
         # @return [ActionDispatch::MiddlewareStackProxy] configured middleware stack
         def configure_middleware(app)
           apply_configuration(app)
-          configure_bff_library
+          BffConfigurator.configure_library
 
           unless discovery_url_present?
             log_missing_discovery_url_warning
@@ -61,82 +63,9 @@ module Verikloak
           end
 
           stack = insert_base_middleware(app)
-          configure_bff_guard(stack) if stack
+          BffConfigurator.configure_bff_guard(stack) if stack
 
           stack
-        end
-
-        # Insert the optional HeaderGuard middleware when verikloak-bff is present.
-        #
-        # @param stack [ActionDispatch::MiddlewareStackProxy]
-        # @return [void]
-        def configure_bff_guard(stack)
-          return unless Verikloak::Rails.config.auto_insert_bff_header_guard
-          return unless defined?(::Verikloak::BFF::HeaderGuard)
-
-          guard_before = Verikloak::Rails.config.bff_header_guard_insert_before
-          guard_after = Verikloak::Rails.config.bff_header_guard_insert_after
-          if guard_before
-            stack.insert_before guard_before, ::Verikloak::BFF::HeaderGuard
-          elsif guard_after
-            stack.insert_after guard_after, ::Verikloak::BFF::HeaderGuard
-          else
-            stack.insert_before ::Verikloak::Middleware, ::Verikloak::BFF::HeaderGuard
-          end
-        end
-
-        # Apply configuration options to the verikloak-bff namespace.
-        # Supports hash-like and callable inputs.
-        #
-        # @param target [Module] Verikloak::BFF or Verikloak::Bff namespace
-        # @param options [Hash, Proc, #to_h]
-        # @return [void]
-        def apply_bff_configuration(target, options)
-          if options.respond_to?(:call)
-            target.configure(&options)
-            return
-          end
-
-          hash = options.respond_to?(:to_h) ? options.to_h : options
-          return unless hash.respond_to?(:each)
-
-          entries = hash.transform_keys(&:to_sym)
-
-          return if entries.empty?
-
-          target.configure do |config|
-            entries.each do |key, value|
-              writer = "#{key}="
-              config.public_send(writer, value) if config.respond_to?(writer)
-            end
-          end
-        end
-
-        # Sync configuration from the Rails application into Verikloak::Rails.
-        #
-        # @param app [Rails::Application]
-        # @return [void]
-        def apply_configuration(app)
-          Verikloak::Rails.configure do |c|
-            rails_cfg = app.config.verikloak
-            CONFIG_KEYS.each do |key|
-              c.send("#{key}=", rails_cfg[key]) if rails_cfg.key?(key)
-            end
-            c.rescue_pundit = false if !rails_cfg.key?(:rescue_pundit) && defined?(::Verikloak::Pundit)
-          end
-        end
-
-        # Configure the verikloak-bff library when options are supplied.
-        #
-        # @return [void]
-        def configure_bff_library
-          options = Verikloak::Rails.config.bff_header_guard_options
-          return if options.nil? || (options.respond_to?(:empty?) && options.empty?)
-          return unless defined?(::Verikloak::BFF) && ::Verikloak::BFF.respond_to?(:configure)
-
-          apply_bff_configuration(::Verikloak::BFF, options)
-        rescue StandardError => e
-          warn_with_fallback("[verikloak] Failed to apply BFF configuration: #{e.message}")
         end
 
         # Check if discovery_url is present and valid.
@@ -158,7 +87,21 @@ module Verikloak
         # @return [void]
         def log_missing_discovery_url_warning
           message = '[verikloak] discovery_url is not configured; skipping middleware insertion.'
-          warn_with_fallback(message)
+          RailtieLogger.warn(message)
+        end
+
+        # Sync configuration from the Rails application into Verikloak::Rails.
+        #
+        # @param app [Rails::Application]
+        # @return [void]
+        def apply_configuration(app)
+          Verikloak::Rails.configure do |c|
+            rails_cfg = app.config.verikloak
+            CONFIG_KEYS.each do |key|
+              c.send("#{key}=", rails_cfg[key]) if rails_cfg.key?(key)
+            end
+            c.rescue_pundit = false if !rails_cfg.key?(:rescue_pundit) && defined?(::Verikloak::Pundit)
+          end
         end
 
         # Insert the base Verikloak::Middleware into the application middleware stack.
@@ -243,26 +186,7 @@ module Verikloak
         def log_middleware_insertion_warning(candidate, error)
           candidate_name = candidate.is_a?(Class) ? candidate.name : candidate.class.name
           message = "[verikloak] Unable to insert after #{candidate_name}: #{error.message}"
-          warn_with_fallback(message)
-        end
-
-        # Resolve the logger instance used for warnings, if present.
-        # @return [Object, nil]
-        def rails_logger
-          return unless defined?(::Rails) && ::Rails.respond_to?(:logger)
-
-          ::Rails.logger
-        end
-
-        # Log a warning using Rails.logger when available, otherwise fall back to Kernel#warn.
-        # @param message [String]
-        # @return [void]
-        def warn_with_fallback(message)
-          if (logger = rails_logger)
-            logger.warn(message)
-          else
-            warn(message)
-          end
+          RailtieLogger.warn(message)
         end
       end
     end
