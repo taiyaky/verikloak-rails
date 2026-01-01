@@ -108,6 +108,16 @@ class ApplicationController < ActionController::Base
 end
 ```
 
+### API Mode Support
+Both `ActionController::Base` and `ActionController::API` are supported. The controller concern is automatically included in both when `auto_include_controller` is enabled (default).
+
+```ruby
+# Works automatically with Rails API mode (rails new myapp --api)
+class ApplicationController < ActionController::API
+  # Verikloak::Rails::Controller is auto-included
+end
+```
+
 ## Middleware
 ### Inserted Middleware
 | Component | Inserted relative to | Purpose |

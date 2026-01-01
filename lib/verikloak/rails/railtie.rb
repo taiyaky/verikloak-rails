@@ -31,10 +31,16 @@ module Verikloak
       end
 
       # Optionally include the controller concern when ActionController loads.
+      # Supports both ActionController::Base and ActionController::API (API mode).
+      # Skips inclusion if the controller already includes the concern.
       # @return [void]
       initializer 'verikloak.controller' do |_app|
-        ActiveSupport.on_load(:action_controller_base) do
-          include Verikloak::Rails::Controller if Verikloak::Rails.config.auto_include_controller
+        %i[action_controller_base action_controller_api].each do |hook|
+          ActiveSupport.on_load(hook) do
+            next if include?(Verikloak::Rails::Controller) # Already included, skip
+
+            include Verikloak::Rails::Controller if Verikloak::Rails.config.auto_include_controller
+          end
         end
       end
 

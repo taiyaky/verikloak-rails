@@ -1,19 +1,7 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-
-
-# Stub base error if the base gem is not loaded
-module ::Verikloak; end unless defined?(::Verikloak)
-unless defined?(::Verikloak::Error)
-  class ::Verikloak::Error < StandardError
-    attr_reader :code
-    def initialize(code = 'unauthorized', message = nil)
-      @code = code
-      super(message || code)
-    end
-  end
-end
+require_relative 'support/verikloak_stubs'
 
 RSpec.describe Verikloak::Rails::ErrorRenderer do
   let(:renderer) { described_class.new }
@@ -86,5 +74,28 @@ RSpec.describe Verikloak::Rails::ErrorRenderer do
     expect(hdr).not_to include("\n")
     # Quote is escaped inside the quoted-string value; CR/LF collapsed to a single space
     expect(hdr).to include('error_description="bad\\" desc"')
+  end
+
+  context 'with edge case inputs' do
+    it 'handles nil error message gracefully' do
+      error = ::Verikloak::Error.new('invalid_token', nil)
+      renderer.render(controller, error)
+      expect(controller.rendered[:status]).to eq(401)
+      expect(controller.rendered[:json][:error]).to eq('invalid_token')
+    end
+
+    it 'handles empty string error message' do
+      error = ::Verikloak::Error.new('invalid_token', '')
+      renderer.render(controller, error)
+      expect(controller.rendered[:status]).to eq(401)
+      expect(controller.rendered[:json][:error]).to eq('invalid_token')
+    end
+
+    it 'handles unknown error codes as 401' do
+      error = ::Verikloak::Error.new('unknown_code', 'mystery')
+      renderer.render(controller, error)
+      expect(controller.rendered[:status]).to eq(401)
+      expect(controller.rendered[:json][:error]).to eq('unknown_code')
+    end
   end
 end

@@ -1,14 +1,29 @@
 # frozen_string_literal: true
 
 Rails.application.configure do
+  # Discovery URL (required)
   config.verikloak.discovery_url = ENV.fetch('KEYCLOAK_DISCOVERY_URL', nil)
-  config.verikloak.audience      = ENV.fetch('VERIKLOAK_AUDIENCE', 'rails-api')
-  config.verikloak.issuer        = ENV.fetch('VERIKLOAK_ISSUER', nil)
-  config.verikloak.leeway        = Integer(ENV.fetch('VERIKLOAK_LEEWAY', '60'))
-  config.verikloak.skip_paths    = %w[/up /health /rails/health]
 
+  # Audience validation (optional but recommended)
+  config.verikloak.audience = ENV.fetch('KEYCLOAK_AUDIENCE', 'rails-api')
+
+  # Issuer validation (optional, derived from discovery_url if not set)
+  config.verikloak.issuer = ENV.fetch('KEYCLOAK_ISSUER', nil)
+
+  # JWT clock skew tolerance in seconds
+  config.verikloak.leeway = Integer(ENV.fetch('VERIKLOAK_LEEWAY', '60'))
+
+  # Paths to skip authentication (health checks, etc.)
+  config.verikloak.skip_paths = %w[/up /health /rails/health]
+
+  # Request ID and subject in logs
   config.verikloak.logger_tags = %i[request_id sub]
-  config.verikloak.auto_include_controller = true
+
+  # Auto-include controller concern
+  # Set to false if you manually include Verikloak::Rails::Controller
+  config.verikloak.auto_include_controller = ENV.fetch('VERIKLOAK_AUTO_INCLUDE', 'true') == 'true'
+
+  # Render detailed 500 errors (development only recommended)
   config.verikloak.render_500_json = ENV.fetch('VERIKLOAK_RENDER_500', 'false') == 'true'
 
   # Optional Pundit rescue (403 JSON). Leave commented so `verikloak-pundit`
