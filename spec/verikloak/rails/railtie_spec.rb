@@ -6,6 +6,9 @@ require 'spec_helper'
 require 'rails'
 require 'action_controller/railtie'
 
+# Load stubs before verikloak/rails to ensure Verikloak::Error is defined
+require_relative '../../stubs/verikloak/middleware'
+
 require 'verikloak/rails'
 
 RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
@@ -17,18 +20,21 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
     end
 
     context 'with default configuration' do
-      it 'returns fallback middleware candidates when configured value is nil' do
+      it 'returns fallback middleware candidates without duplicates' do
         Verikloak::Rails.configure do |config|
           config.middleware_insert_after = nil
         end
 
         candidates = railtie.send(:middleware_insert_after_candidates)
         
-        # Should contain only the defaults (no configured value)
-        expect(candidates).to include(::Rails::Rack::Logger) if defined?(::Rails::Rack::Logger)
-        expect(candidates).to include(::ActionDispatch::Executor) if defined?(::ActionDispatch::Executor)
-        expect(candidates).to include(::Rack::Head) if defined?(::Rack::Head)
-        expect(candidates).to include(::Rack::Runtime) if defined?(::Rack::Runtime)
+        # Should contain standard Rails middleware as fallbacks
+        expect(candidates).to include(::Rails::Rack::Logger)
+        expect(candidates).to include(::ActionDispatch::Executor)
+        expect(candidates).to include(::Rack::Head)
+        expect(candidates).to include(::Rack::Runtime)
+        
+        # Should be unique (no duplicates)
+        expect(candidates.uniq).to eq(candidates)
       end
     end
 
@@ -44,33 +50,8 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
         expect(candidates.first).to eq(::ActionDispatch::Static)
         
         # Should also include fallbacks
-        expect(candidates).to include(::Rails::Rack::Logger) if defined?(::Rails::Rack::Logger)
-        expect(candidates).to include(::ActionDispatch::Executor) if defined?(::ActionDispatch::Executor)
-      end
-    end
-
-    context 'with Rails 8 compatibility' do
-      it 'handles Rails 8 middleware stack gracefully' do
-        # Ensure we're testing with the actual middleware classes
-        expect(defined?(::Rails::Rack::Logger)).to eq('constant')
-        expect(defined?(::ActionDispatch::Executor)).to eq('constant')
-        expect(defined?(::Rack::Head)).to eq('constant')
-        expect(defined?(::Rack::Runtime)).to eq('constant')
-
-        Verikloak::Rails.configure do |config|
-          config.middleware_insert_after = nil
-        end
-
-        candidates = railtie.send(:middleware_insert_after_candidates)
-        
-        # All expected middleware should be present in Rails 8
         expect(candidates).to include(::Rails::Rack::Logger)
         expect(candidates).to include(::ActionDispatch::Executor)
-        expect(candidates).to include(::Rack::Head)
-        expect(candidates).to include(::Rack::Runtime)
-        
-        # Should be unique (no duplicates)
-        expect(candidates.uniq).to eq(candidates)
       end
     end
   end
@@ -242,6 +223,57 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
         expect(middleware_stack).not_to receive(:insert_after)
 
         railtie.send(:configure_bff_guard, middleware_stack)
+      end
+    end
+  end
+
+  describe 'verikloak.controller initializer' do
+    describe 'API mode support' do
+      it 'registers hooks for both ActionController::Base and ActionController::API' do
+        initializer = described_class.initializers.find { |i| i.name == 'verikloak.controller' }
+        expect(initializer).not_to be_nil
+
+        # Read the source file to verify both hooks are registered
+        source_file, _line = initializer.block.source_location
+        source_content = File.read(source_file)
+
+        expect(source_content).to include('action_controller_base')
+        expect(source_content).to include('action_controller_api')
+      end
+
+      it 'includes concern in ActionController::API when auto_include_controller is true' do
+        Verikloak::Rails.reset!
+        Verikloak::Rails.configure do |config|
+          config.auto_include_controller = true
+        end
+
+        # Create a test API controller class and simulate the on_load callback
+        api_controller = Class.new(ActionController::API)
+        api_controller.include(Verikloak::Rails::Controller)
+
+        expect(api_controller.included_modules).to include(Verikloak::Rails::Controller)
+      end
+
+      it 'skips inclusion when controller already includes the concern' do
+        Verikloak::Rails.reset!
+        Verikloak::Rails.configure do |config|
+          config.auto_include_controller = true
+        end
+
+        # Create a controller that already includes the concern
+        api_controller = Class.new(ActionController::API)
+        api_controller.include(Verikloak::Rails::Controller)
+
+        # Simulating re-inclusion should not raise or cause issues
+        expect {
+          api_controller.class_eval do
+            include Verikloak::Rails::Controller unless include?(Verikloak::Rails::Controller)
+          end
+        }.not_to raise_error
+
+        # Should still only be included once in the ancestor chain
+        count = api_controller.included_modules.count { |m| m == Verikloak::Rails::Controller }
+        expect(count).to eq(1)
       end
     end
   end

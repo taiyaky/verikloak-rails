@@ -8,17 +8,12 @@ require 'active_support/tagged_logging'
 # Ensure the stubbed base middleware is found before the Railtie requires it.
 $LOAD_PATH.unshift File.expand_path('../stubs', __dir__)
 
+# Load shared stubs for error classes
+require_relative '../support/verikloak_stubs'
+
 require 'rails'
 require 'action_controller/railtie'
 require 'rack/test'
-
-# Define Verikloak module and stubs before requiring verikloak-rails
-module ::Verikloak; end unless defined?(::Verikloak)
-
-# Stub missing error classes that the real middleware expects
-unless defined?(::Verikloak::DiscoveryError)
-  class ::Verikloak::DiscoveryError < StandardError; end
-end
 
 # Stub the Discovery class that the real middleware expects
 unless defined?(::Verikloak::Middleware::Discovery)
@@ -28,32 +23,11 @@ unless defined?(::Verikloak::Middleware::Discovery)
         def initialize(*); end
         def call(*); end
       end
-      
-      # Stub missing error classes
-      class MiddlewareError < StandardError; end
     end
   end
-end
-
-# Define Verikloak::Error for controller rescue behavior if not present.
-unless defined?(::Verikloak::Error)
-  class ::Verikloak::Error < StandardError
-    attr_reader :code
-    def initialize(code = 'unauthorized', message = nil)
-      @code = code
-      super(message || code)
-    end
-  end
-end
-
-# Define a minimal Pundit::NotAuthorizedError to exercise the rescue path
-module ::Pundit; end unless defined?(::Pundit)
-unless defined?(::Pundit::NotAuthorizedError)
-  class ::Pundit::NotAuthorizedError < StandardError; end
 end
 
 # Define a minimal BFF header guard to exercise auto-insertion behavior.
-module ::Verikloak; end unless defined?(::Verikloak)
 module ::Verikloak::BFF; end unless defined?(::Verikloak::BFF)
 unless defined?(::Verikloak::BFF::HeaderGuard)
   class ::Verikloak::BFF::HeaderGuard

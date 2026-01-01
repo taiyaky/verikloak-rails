@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.1] - 2026-01-01
+
+### Added
+- **API mode support**: `auto_include_controller` now automatically includes
+  `Verikloak::Rails::Controller` in both `ActionController::Base` and `ActionController::API`
+  - Rails API-only applications (`rails new myapp --api`) now work out of the box
+  - Skip logic prevents duplicate inclusion when controller already includes the concern
+
+### Changed
+- **Generator template improved**: `initializer.rb.erb` now includes:
+  - Descriptive comments for each configuration option
+  - ENV variable support for `auto_include_controller` (`VERIKLOAK_AUTO_INCLUDE`)
+  - ENV variable prefix changed from `VERIKLOAK_AUDIENCE` to `KEYCLOAK_AUDIENCE` for consistency
+
+### Documentation
+- README updated with API mode usage example
+
+---
+
 ## [0.3.0] - 2026-01-01
 
 ### Changed

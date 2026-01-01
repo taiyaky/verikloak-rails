@@ -3,10 +3,10 @@
 # Minimal stub of the base Verikloak middleware for integration tests.
 # It simulates successful authentication when a bearer token 'valid' is present.
 
-module Verikloak
-  # Stub missing error classes that the real middleware expects
-  class DiscoveryError < StandardError; end
+# Load shared stubs for error classes
+require_relative '../../support/verikloak_stubs'
 
+module Verikloak
   class Middleware
     # Stub missing error classes
     class MiddlewareError < StandardError; end
