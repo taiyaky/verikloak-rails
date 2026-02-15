@@ -57,8 +57,8 @@ RSpec.describe Verikloak::Generators::InstallGenerator, type: :generator do
       expect(content).to include("config.verikloak.discovery_url = ENV.fetch('KEYCLOAK_DISCOVERY_URL', nil)")
 
       # Optional settings with defaults
-      expect(content).to include("config.verikloak.audience = ENV.fetch('KEYCLOAK_AUDIENCE', 'rails-api')")
-      expect(content).to include("config.verikloak.issuer = ENV.fetch('KEYCLOAK_ISSUER', nil)")
+      expect(content).to include("config.verikloak.audience = ENV.fetch('VERIKLOAK_AUDIENCE', 'rails-api')")
+      expect(content).to include("config.verikloak.issuer = ENV.fetch('VERIKLOAK_ISSUER', nil)")
       expect(content).to include("config.verikloak.leeway = Integer(ENV.fetch('VERIKLOAK_LEEWAY', '60'))")
       expect(content).to include('config.verikloak.skip_paths = %w[/up /health /rails/health]')
       expect(content).to include('config.verikloak.logger_tags = %i[request_id sub]')

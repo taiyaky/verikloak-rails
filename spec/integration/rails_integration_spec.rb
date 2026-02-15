@@ -124,6 +124,66 @@ RSpec.describe 'Rails integration', type: :request do
   # Note: Most integration tests are temporarily skipped due to complex middleware dependencies
   # The core functionality is tested in unit tests and the Pundit integration spec
 
+  # ── E2E HTTP tests ───────────────────────────────────────────────
+  # These tests exercise the full Rack middleware pipeline through
+  # actual HTTP requests via Rack::Test, using the stub middleware
+  # in spec/stubs/verikloak/middleware.rb.
+
+  context 'E2E: authenticated request' do
+    it 'returns 200 with claims when a valid Bearer token is provided' do
+      header 'Authorization', 'Bearer valid'
+      get '/hello'
+      expect(last_response.status).to eq(200)
+      body = JSON.parse(last_response.body)
+      expect(body['sub']).to eq('user-123')
+    end
+  end
+
+  context 'E2E: unauthenticated request' do
+    it 'returns 401 when no token is provided (authenticate_user! is auto-included)' do
+      get '/hello'
+      expect(last_response.status).to eq(401)
+      body = JSON.parse(last_response.body)
+      expect(body['error']).to eq('unauthorized')
+    end
+  end
+
+  context 'E2E: audience enforcement' do
+    it 'returns 200 when audience check passes' do
+      header 'Authorization', 'Bearer valid'
+      get '/aud_ok'
+      expect(last_response.status).to eq(200)
+    end
+
+    it 'returns 403 JSON when audience check fails' do
+      header 'Authorization', 'Bearer valid'
+      get '/aud_ng'
+      expect(last_response.status).to eq(403)
+      body = JSON.parse(last_response.body)
+      expect(body).to have_key('error')
+    end
+  end
+
+  context 'E2E: unhandled exception' do
+    it 'returns 500 JSON when render_500_json is enabled' do
+      header 'Authorization', 'Bearer valid'
+      get '/boom'
+      expect(last_response.status).to eq(500)
+      body = JSON.parse(last_response.body)
+      expect(body['error']).to eq('internal_server_error')
+    end
+  end
+
+  context 'E2E: Pundit authorization failure' do
+    it 'returns 403 JSON for Pundit::NotAuthorizedError' do
+      header 'Authorization', 'Bearer valid'
+      get '/pundit'
+      expect(last_response.status).to eq(403)
+      body = JSON.parse(last_response.body)
+      expect(body['error']).to eq('forbidden')
+    end
+  end
+
   context 'when discovery_url is missing' do
     it 'handles missing discovery_url configuration gracefully' do
       # Reset state for this test
