@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'active_support/concern'
+require 'set'
 
 module Verikloak
   module Rails
@@ -43,11 +44,7 @@ module Verikloak
       def authenticate_user!
         return if authenticated?
 
-        e = begin
-          ::Verikloak::Error.new('unauthorized')
-        rescue StandardError
-          StandardError.new('Unauthorized')
-        end
+        e = ::Verikloak::Error.new('Unauthorized', code: 'unauthorized')
         Verikloak::Rails.config.error_renderer.render(self, e)
       end
 
@@ -84,7 +81,7 @@ module Verikloak
         aud = Array(current_user_claims&.dig('aud'))
         return if required.flatten.all? { |r| aud.include?(r) }
 
-        raise ::Verikloak::Error.new('forbidden', 'Required audience not satisfied')
+        raise ::Verikloak::Error.new('Required audience not satisfied', code: 'forbidden')
       end
 
       private
@@ -108,7 +105,7 @@ module Verikloak
         tags = []
         if config.logger_tags.include?(:request_id)
           rid = request.request_id || request.headers['X-Request-Id']
-          rid = rid.to_s.gsub(/[\r\n]+/, ' ')
+          rid = rid.to_s.gsub(/[[:cntrl:]]+/, ' ').strip
           tags << "req:#{rid}" unless rid.empty?
         end
         if config.logger_tags.include?(:sub)
@@ -164,7 +161,10 @@ module Verikloak
                         logger
                       end
         current = root_logger
+        seen = Set.new
         while current.respond_to?(:logger)
+          break unless seen.add?(current.object_id)
+
           next_logger = current.logger
           break if next_logger.nil? || next_logger.equal?(current)
 

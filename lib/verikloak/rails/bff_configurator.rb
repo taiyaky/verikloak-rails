@@ -103,7 +103,12 @@ module Verikloak
         target.configure do |config|
           entries.each do |key, value|
             writer = "#{key}="
-            config.public_send(writer, value) if config.respond_to?(writer)
+            # Guard: only call known attr_accessor writers to prevent
+            # accidental invocation of arbitrary public methods.
+            next unless config.respond_to?(writer)
+            next if key.to_s.start_with?('_') || key.to_s.include?('!')
+
+            config.public_send(writer, value)
           end
         end
       end

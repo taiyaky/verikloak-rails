@@ -21,7 +21,7 @@ Provide drop-in, token-based authentication for Rails APIs via Verikloak (OIDC d
 ## Compatibility
 - Ruby: >= 3.1
 - Rails: 6.1 – 8.x
-- verikloak: >= 0.3.0, < 1.0.0
+- verikloak: >= 0.4.0, < 1.0.0
 
 ## Quick Start
 ```bash
@@ -168,6 +168,7 @@ Keys under `config.verikloak`:
 | `token_env_key` | String | Custom Rack env key that stores the Bearer token | `nil` (middleware default `verikloak.token`) |
 | `user_env_key` | String | Custom Rack env key that stores decoded claims | `nil` (middleware default `verikloak.user`) |
 | `bff_header_guard_options` | Hash or Proc | Forwarded to `Verikloak::BFF.configure` prior to middleware insertion | `{}` |
+| `allow_http` | Boolean | Allow `http://` discovery URLs (forwarded to core middleware). **Only for development/test.** | `false` |
 
 Environment variable examples are in the generated initializer.
 
@@ -266,14 +267,15 @@ Rails.application.configure do
 end
 ```
 
-Note: Always sanitize values placed into `WWW-Authenticate` header parameters to avoid header injection. For example:
+Note: Always sanitize values placed into `WWW-Authenticate` header parameters to avoid header injection. You can use the shared helper from the core gem:
 
 ```ruby
 class CompactErrorRenderer
   private
-  def sanitize_quoted(val)
-    # Escape quotes/backslashes and strip CR/LF (collapse runs to a single space)
-    val.to_s.gsub(/(["\\])/) { |m| "\\#{m}" }.gsub(/[\r\n]+/, ' ')
+  def sanitize(val)
+    # Delegates to core gem's sanitizer — escapes quotes/backslashes,
+    # truncates at CRLF, and strips all control characters.
+    Verikloak::ErrorResponse.sanitize_header_value(val)
   end
 end
 ```
