@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.0] - 2026-02-15
+
+### Fixed
+- **Generator ENV naming**: `KEYCLOAK_AUDIENCE` → `VERIKLOAK_AUDIENCE`, `KEYCLOAK_ISSUER` → `VERIKLOAK_ISSUER` in generated initializer template to match README ENV Mapping table (`discovery_url` remains `KEYCLOAK_DISCOVERY_URL` as it is Keycloak-specific)
+
+### Added
+- **E2E integration tests**: Added HTTP-level tests exercising the full Rack middleware pipeline (authenticated/unauthenticated requests, audience enforcement, error handling, Pundit integration)
+
+### Changed
+- **BREAKING**: Minimum `verikloak` dependency raised to `~> 1.0`
+- **v1.0.0 stable release**: Public API is now considered stable under Semantic Versioning
+
+---
+
 ## [0.4.0] - 2026-02-15
 
 ### Security

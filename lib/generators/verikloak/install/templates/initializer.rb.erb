@@ -5,10 +5,10 @@ Rails.application.configure do
   config.verikloak.discovery_url = ENV.fetch('KEYCLOAK_DISCOVERY_URL', nil)
 
   # Audience validation (optional but recommended)
-  config.verikloak.audience = ENV.fetch('KEYCLOAK_AUDIENCE', 'rails-api')
+  config.verikloak.audience = ENV.fetch('VERIKLOAK_AUDIENCE', 'rails-api')
 
   # Issuer validation (optional, derived from discovery_url if not set)
-  config.verikloak.issuer = ENV.fetch('KEYCLOAK_ISSUER', nil)
+  config.verikloak.issuer = ENV.fetch('VERIKLOAK_ISSUER', nil)
 
   # JWT clock skew tolerance in seconds
   config.verikloak.leeway = Integer(ENV.fetch('VERIKLOAK_LEEWAY', '60'))
