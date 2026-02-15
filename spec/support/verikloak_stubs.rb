@@ -5,14 +5,16 @@
 
 module ::Verikloak; end unless defined?(::Verikloak)
 
-# Stub for Verikloak::Error - the base error class used throughout verikloak
+# Stub for Verikloak::Error - the base error class used throughout verikloak.
+# Matches the core gem's current signature: Error.new(message, code:, http_status:)
 unless defined?(::Verikloak::Error)
   class ::Verikloak::Error < StandardError
-    attr_reader :code
+    attr_reader :code, :http_status
 
-    def initialize(code = 'unauthorized', message = nil)
+    def initialize(message = nil, code: nil, http_status: nil)
+      super(message)
       @code = code
-      super(message || code)
+      @http_status = http_status
     end
   end
 end

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] - 2026-02-15
+
+### Security
+- **Header sanitization**: `ErrorRenderer` now delegates to `Verikloak::ErrorResponse.sanitize_header_value` — strips all control characters (`[[:cntrl:]]`), not just CR/LF, consistent with core gem
+- **Request-ID sanitization**: Log tag builder strengthened from `/[\r\n]+/` to `/[[:cntrl:]]+/` to block all control characters in tagged logging
+- **BFF configurator hardening**: `public_send` in `BffConfigurator` is now guarded with a whitelist — rejects keys starting with `_` or containing `!` to prevent accidental invocation of non-accessor methods
+
+### Fixed
+- **`with_required_audience!`**: Was passing two positional arguments to `Error.new` (`'forbidden', 'message'`), which raises `ArgumentError` with core gem 0.4.0's keyword-arg signature. Now uses `Error.new('Required audience not satisfied', code: 'forbidden')`
+- **`authenticate_user!`**: Was passing `Error.new('unauthorized')` which set `code` to `nil` (message became `'unauthorized'` but code was unset). Now uses `Error.new('Unauthorized', code: 'unauthorized')` for correct error rendering
+- Test stubs updated to match core gem's keyword-arg `Error.new(message, code:, http_status:)` signature
+
+### Added
+- `allow_http` configuration option — forwarded to core `Verikloak::Middleware` for development/test environments where HTTPS is unavailable
+- Logger cycle detection using `Set` guard in `_verikloak_base_logger` to prevent infinite loops with circular logger chains
+
+### Changed
+- **BREAKING**: Minimum `verikloak` dependency raised to `>= 0.4.0` (keyword-arg `Error.new` signature)
+- Dev dependency `rspec` pinned to `~> 3.13`, `rubocop-rspec` pinned to `~> 3.9`
+- Extracted `auto_disable_rescue_pundit` method from `apply_configuration` in Railtie for clarity and testability
+- Removed `sanitize_quoted` private method from `ErrorRenderer` in favor of shared `Verikloak::ErrorResponse.sanitize_header_value`
+
+---
+
 ## [0.3.2] - 2026-01-01
 
 ### Changed

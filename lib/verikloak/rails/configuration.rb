@@ -61,7 +61,8 @@ module Verikloak
                     :auto_insert_bff_header_guard,
                     :bff_header_guard_insert_before, :bff_header_guard_insert_after,
                     :token_verify_options, :decoder_cache_limit,
-                    :token_env_key, :user_env_key, :bff_header_guard_options
+                    :token_env_key, :user_env_key, :bff_header_guard_options,
+                    :allow_http
 
       # Initialize configuration with sensible defaults for Rails apps.
       # @return [void]
@@ -86,6 +87,7 @@ module Verikloak
         @token_env_key = nil
         @user_env_key = nil
         @bff_header_guard_options = {}
+        @allow_http = false
       end
 
       # Options forwarded to the base Verikloak Rack middleware.
@@ -103,7 +105,8 @@ module Verikloak
           token_verify_options: token_verify_options,
           decoder_cache_limit: decoder_cache_limit,
           token_env_key: token_env_key,
-          user_env_key: user_env_key
+          user_env_key: user_env_key,
+          allow_http: allow_http
         }.compact
       end
     end

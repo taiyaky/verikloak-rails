@@ -20,7 +20,7 @@ module Verikloak
         middleware_insert_after auto_insert_bff_header_guard
         bff_header_guard_insert_before bff_header_guard_insert_after
         token_verify_options decoder_cache_limit token_env_key user_env_key
-        bff_header_guard_options
+        bff_header_guard_options allow_http
       ].freeze
 
       config.verikloak = ActiveSupport::OrderedOptions.new
@@ -100,8 +100,22 @@ module Verikloak
             CONFIG_KEYS.each do |key|
               c.send("#{key}=", rails_cfg[key]) if rails_cfg.key?(key)
             end
-            c.rescue_pundit = false if !rails_cfg.key?(:rescue_pundit) && defined?(::Verikloak::Pundit)
+            auto_disable_rescue_pundit(c, rails_cfg)
           end
+        end
+
+        # When verikloak-pundit is loaded and the user has not explicitly set
+        # rescue_pundit, disable the built-in Pundit rescue to avoid
+        # double-handling errors.
+        #
+        # @param config [Verikloak::Rails::Configuration]
+        # @param rails_cfg [ActiveSupport::OrderedOptions]
+        # @return [void]
+        def auto_disable_rescue_pundit(config, rails_cfg)
+          return if rails_cfg.key?(:rescue_pundit)
+          return unless defined?(::Verikloak::Pundit)
+
+          config.rescue_pundit = false
         end
 
         # Insert the base Verikloak::Middleware into the application middleware stack.

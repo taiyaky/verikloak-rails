@@ -1,11 +1,16 @@
 # frozen_string_literal: true
 
+require 'verikloak/error_response'
+
 module Verikloak
   module Rails
     # Renders JSON errors for authentication/authorization failures.
     #
     # When status is 401, adds a `WWW-Authenticate: Bearer` header including
     # `error` and `error_description` fields when available.
+    #
+    # Header sanitization is delegated to {Verikloak::ErrorResponse} to ensure
+    # consistent control-character stripping across all Verikloak gems.
     class ErrorRenderer
       DEFAULT_STATUS_MAP = {
         'invalid_token' => 401,
@@ -67,6 +72,8 @@ module Verikloak
       end
 
       # Build WWW-Authenticate headers when returning 401 responses.
+      # Delegates sanitization to {Verikloak::ErrorResponse.sanitize_header_value}
+      # to ensure control-character stripping is consistent with the core gem.
       # @param status [Integer]
       # @param code [String, nil]
       # @param message [String]
@@ -74,22 +81,11 @@ module Verikloak
       def auth_headers(status, code, message)
         return {} unless status == 401
 
+        sanitize = ->(v) { Verikloak::ErrorResponse.sanitize_header_value(v) }
         header = +'Bearer'
-        header << %( error="#{sanitize_quoted(code)}") if code
-        header << %( error_description="#{sanitize_quoted(message)}") if message
+        header << %( error="#{sanitize.call(code)}") if code
+        header << %( error_description="#{sanitize.call(message)}") if message
         { 'WWW-Authenticate' => header }
-      end
-
-      # Sanitize a value for inclusion inside a quoted HTTP header parameter.
-      # Escapes quotes and backslashes, and strips CR/LF to prevent header injection.
-      # Why block replacement? String replacements like '\\1' are parsed as
-      # backreferences/escapes in Ruby, making precise escaping error‑prone.
-      # The block receives the literal match and we return it prefixed with a
-      # backslash, guaranteeing predictable escaping for both " and \\.
-      # @param val [String]
-      # @return [String]
-      def sanitize_quoted(val)
-        val.to_s.gsub(/(["\\])/) { |m| "\\#{m}" }.gsub(/[\r\n]+/, ' ')
       end
     end
   end
