@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative 'skip_path_checker'
+
 module Verikloak
   module Rails
     # Configuration for verikloak-rails.
@@ -73,7 +75,7 @@ module Verikloak
         @audience      = 'rails-api'
         @issuer        = nil
         @leeway        = 60
-        @skip_paths    = ['/up', '/health', '/rails/health']
+        @skip_paths    = ['/up', '/health', '/rails/health'].freeze
         @logger_tags    = %i[request_id sub]
         @error_renderer = Verikloak::Rails::ErrorRenderer.new
         @auto_include_controller = true
@@ -95,7 +97,7 @@ module Verikloak
 
       # @param value [Array<String, Regexp>]
       def skip_paths=(value)
-        @skip_paths = value
+        @skip_paths = Array(value).freeze
         @skip_path_matcher = nil
       end
 
