@@ -42,6 +42,7 @@ module Verikloak
       #     before_action :authenticate_user!
       #   end
       def authenticate_user!
+        return if Verikloak::Rails.config.skip_path_matcher.skip?(request.path_info)
         return if authenticated?
 
         e = ::Verikloak::Error.new('Unauthorized', code: 'unauthorized')

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.1] - 2026-03-08
+
+### Fixed
+- **`authenticate_user!` ignores `skip_paths` on framework-internal controllers**: When `auto_include_controller` is enabled (default), `before_action :authenticate_user!` was also applied to framework-internal controllers such as `ActiveStorage::BaseController`. Paths skipped by the middleware layer via `skip_paths` still received a 401 from the controller layer. `authenticate_user!` now consults the configured `skip_paths`, ensuring consistent skip behavior across both middleware and controller layers.
+
+### Added
+- `Verikloak::Rails::SkipPathChecker` — standalone wrapper around `Verikloak::SkipPathMatcher` that enables the controller layer to reuse the same skip-path matching logic as the Rack middleware
+- `Configuration#skip_path_matcher` — lazily-built, cached skip-path matcher instance; automatically invalidated when `skip_paths=` is called
+
+---
+
 ## [1.0.0] - 2026-02-15
 
 ### Fixed

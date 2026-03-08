@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'verikloak/rails/version'
+require 'verikloak/rails/skip_path_checker'
 require 'verikloak/rails/configuration'
 require 'verikloak/rails/error_renderer'
 require 'verikloak/rails/controller'

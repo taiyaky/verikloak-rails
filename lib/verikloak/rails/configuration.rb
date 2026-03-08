@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative 'skip_path_checker'
+
 module Verikloak
   module Rails
     # Configuration for verikloak-rails.
@@ -54,7 +56,7 @@ module Verikloak
     #   Rack middleware to insert the header guard after.
     #   @return [Object, String, Symbol, nil]
     class Configuration
-      attr_accessor :discovery_url, :audience, :issuer, :leeway, :skip_paths,
+      attr_accessor :discovery_url, :audience, :issuer, :leeway,
                     :logger_tags, :error_renderer, :auto_include_controller,
                     :render_500_json, :rescue_pundit,
                     :middleware_insert_before, :middleware_insert_after,
@@ -64,6 +66,8 @@ module Verikloak
                     :token_env_key, :user_env_key, :bff_header_guard_options,
                     :allow_http
 
+      attr_reader :skip_paths
+
       # Initialize configuration with sensible defaults for Rails apps.
       # @return [void]
       def initialize
@@ -71,7 +75,7 @@ module Verikloak
         @audience      = 'rails-api'
         @issuer        = nil
         @leeway        = 60
-        @skip_paths    = ['/up', '/health', '/rails/health']
+        @skip_paths    = ['/up', '/health', '/rails/health'].freeze
         @logger_tags    = %i[request_id sub]
         @error_renderer = Verikloak::Rails::ErrorRenderer.new
         @auto_include_controller = true
@@ -88,6 +92,19 @@ module Verikloak
         @user_env_key = nil
         @bff_header_guard_options = {}
         @allow_http = false
+        @skip_path_matcher = nil
+      end
+
+      # @param value [Array<String, Regexp>]
+      def skip_paths=(value)
+        @skip_paths = Array(value).freeze
+        @skip_path_matcher = nil
+      end
+
+      # Pre-compiled skip-path matcher shared with the controller layer.
+      # @return [Verikloak::Rails::SkipPathChecker]
+      def skip_path_matcher
+        @skip_path_matcher ||= SkipPathChecker.new(skip_paths)
       end
 
       # Options forwarded to the base Verikloak Rack middleware.
