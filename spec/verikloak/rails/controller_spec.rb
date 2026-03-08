@@ -71,6 +71,70 @@ RSpec.describe Verikloak::Rails::Controller do
     end
   end
 
+  describe '#authenticate_user!' do
+    let(:request) do
+      instance_double('ActionDispatch::Request', env: env, headers: {}, request_id: nil, path_info: request_path)
+    end
+    let(:request_path) { '/api/protected' }
+
+    context 'when the path matches a configured skip_path' do
+      before do
+        Verikloak::Rails.config.skip_paths = ['/rails/active_storage/*', '/health']
+      end
+
+      let(:request_path) { '/rails/active_storage/blobs/proxy/abc123' }
+
+      it 'skips authentication and does not render an error' do
+        controller.authenticate_user!
+        expect(controller.render_calls).to be_empty
+      end
+    end
+
+    context 'when the path exactly matches a skip_path' do
+      before do
+        Verikloak::Rails.config.skip_paths = ['/health']
+      end
+
+      let(:request_path) { '/health' }
+
+      it 'skips authentication' do
+        controller.authenticate_user!
+        expect(controller.render_calls).to be_empty
+      end
+    end
+
+    context 'when the path does not match any skip_path and user is unauthenticated' do
+      before do
+        Verikloak::Rails.config.skip_paths = ['/health']
+      end
+
+      let(:request_path) { '/api/protected' }
+
+      it 'invokes the error renderer' do
+        renderer = instance_double('Verikloak::Rails::ErrorRenderer')
+        allow(renderer).to receive(:render)
+        Verikloak::Rails.config.error_renderer = renderer
+
+        controller.authenticate_user!
+        expect(renderer).to have_received(:render).with(controller, an_instance_of(Verikloak::Error))
+      end
+    end
+
+    context 'when the path does not match any skip_path and user is authenticated' do
+      before do
+        Verikloak::Rails.config.skip_paths = ['/health']
+        env['verikloak.user'] = { 'sub' => 'user-1' }
+      end
+
+      let(:request_path) { '/api/protected' }
+
+      it 'does not render an error' do
+        controller.authenticate_user!
+        expect(controller.render_calls).to be_empty
+      end
+    end
+  end
+
   describe '#_verikloak_log_internal_error' do
     it 'swallows logging failures from the chosen logger' do
       failing_logger = Class.new do
