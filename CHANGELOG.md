@@ -10,7 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.0] - 2026-05-09
 
 ### Added
-- **RSpec testing helpers** (`Verikloak::Rails::Testing`): a reusable test-support layer so applications no longer have to hand-roll their own Verikloak stubs/claim builders. Composed of three independent modules — `ClaimsBuilder` (build OIDC-shaped claim Hashes from a user-like object), `MiddlewareStub` (stub `Verikloak::Middleware` and, when loaded, `Verikloak::BFF::HeaderGuard` / `Verikloak::Audience::Middleware` to inject claims into `env['verikloak.user']`), and `Helpers` (top-level mix-in plus `Verikloak::Pundit::UserContext` builders when `verikloak-pundit` is loaded). Require `verikloak/rails/testing/rspec` from your `rails_helper.rb` to mix the helpers into request/controller/policy specs and to register the `with verikloak admin auth`, `with verikloak user auth`, and `with verikloak custom auth` shared contexts. See README "Testing Support" for usage.
+- **RSpec testing helpers** (`Verikloak::Rails::Testing`): a reusable test-support layer so applications no longer have to hand-roll their own Verikloak stubs/claim builders. Composed of three independent modules — `ClaimsBuilder` (build OIDC-shaped claim Hashes from a user-like object), `MiddlewareStub` (stub `Verikloak::Middleware` and, when loaded, `Verikloak::BFF::HeaderGuard` / `Verikloak::Audience::Middleware` to inject claims into `env['verikloak.user']`), and `Helpers` (top-level mix-in plus `Verikloak::Pundit::UserContext` builders when `verikloak-pundit` is loaded). Require `verikloak/rails/testing/rspec` from your `rails_helper.rb` to mix the helpers into request and policy specs and to register the `with verikloak admin auth`, `with verikloak user auth`, and `with verikloak custom auth` shared contexts. Note: `MiddlewareStub` requires RSpec, and controller specs (`type: :controller`) bypass the Rack middleware stack and are therefore not auto-included; set `request.env['verikloak.user']` directly in those specs. See README "Testing Support" for usage.
+
+### Changed
+- **`ClaimsBuilder#build_jwt_claims`** falls back to the user's email when `username` / `preferred_username` is present but blank, preventing the `preferred_username` claim from being silently dropped by `.compact`.
+
+### Security
+- **Bumped `rails` to `>= 8.1.3` and `json` to `>= 2.19.5`** in `Gemfile.lock` to clear known advisories surfaced by `bundler-audit` (Active Storage range-header DoS and json format-string injection).
 
 ---
 

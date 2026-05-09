@@ -5,7 +5,12 @@
 # Require this file from `spec/rails_helper.rb` (or `spec/spec_helper.rb`)
 # to:
 #
-# 1. Mix {Verikloak::Rails::Testing::Helpers} into request and policy specs.
+# 1. Mix {Verikloak::Rails::Testing::Helpers} into request and policy
+#    specs. Controller specs (`type: :controller`) are intentionally
+#    excluded because they bypass the Rack middleware stack, which is
+#    where `stub_verikloak_middleware` injects claims; use a request
+#    spec instead, or set `request.env['verikloak.user']` directly when
+#    you must use a controller spec.
 # 2. Register the shared contexts:
 #    - `"with verikloak admin auth"`
 #    - `"with verikloak user auth"`
@@ -21,7 +26,6 @@ raise 'verikloak/rails/testing/rspec requires RSpec' unless defined?(RSpec)
 
 RSpec.configure do |config|
   config.include Verikloak::Rails::Testing::Helpers, type: :request
-  config.include Verikloak::Rails::Testing::Helpers, type: :controller
   config.include Verikloak::Rails::Testing::Helpers, type: :policy
 end
 

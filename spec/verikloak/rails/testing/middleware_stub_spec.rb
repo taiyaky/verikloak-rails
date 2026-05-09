@@ -18,7 +18,7 @@ RSpec.describe Verikloak::Rails::Testing::MiddlewareStub do
   end
 
   it 'replaces Verikloak::Middleware#call with a passthrough that injects claims' do
-    inner_app = ->(env) { [200, {}, [env['verikloak.user'].to_json]] }
+    inner_app = ->(env) { [200, {}, [env['verikloak.user']]] }
     middleware = Verikloak::Middleware.new(inner_app)
 
     stub_verikloak_middleware(claims)
@@ -29,7 +29,7 @@ RSpec.describe Verikloak::Rails::Testing::MiddlewareStub do
     expect(status).to eq(200)
     expect(env['verikloak.user']).to eq(claims)
     expect(env['verikloak.token']).to eq(described_class::DEFAULT_STUB_TOKEN)
-    expect(body.first).to include('user-123')
+    expect(body.first).to eq(claims)
   end
 
   it 'allows overriding the injected token' do

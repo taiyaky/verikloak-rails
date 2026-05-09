@@ -238,13 +238,19 @@ Require the integration once from `spec/rails_helper.rb` (or
 require "verikloak/rails/testing/rspec"
 ```
 
-This mixes `Verikloak::Rails::Testing::Helpers` into request, controller
-and policy specs, and registers three shared contexts:
+This mixes `Verikloak::Rails::Testing::Helpers` into request and policy
+specs, and registers three shared contexts:
 
 - `"with verikloak admin auth"`  — authenticates as an admin (`groups: ["/admin"]`)
 - `"with verikloak user auth"`   — authenticates as a regular user (`groups: ["/user"]`)
 - `"with verikloak custom auth"` — uses `let(:verikloak_groups)` /
   `let(:verikloak_extra_claims)` to customise the injected claims
+
+> Controller specs (`type: :controller`) bypass the Rack middleware
+> stack, so `stub_verikloak_middleware` cannot inject claims through
+> them. Prefer `type: :request`; if you must use a controller spec,
+> set `request.env['verikloak.user']`/`request.env['verikloak.token']`
+> directly in a `before` block.
 
 The shared contexts assume a `current_user` factory exists (e.g.
 `create(:user)`); override `let(:current_user)` to inject a different

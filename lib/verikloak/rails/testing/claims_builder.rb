@@ -60,10 +60,24 @@ module Verikloak
         private
 
         def preferred_username_for(user)
-          return user.username           if user.respond_to?(:username)
-          return user.preferred_username if user.respond_to?(:preferred_username)
+          candidate = if user.respond_to?(:username)
+                        user.username
+                      elsif user.respond_to?(:preferred_username)
+                        user.preferred_username
+                      end
 
-          user.email
+          # Fall back to email when the configured method exists but
+          # returns a blank value (nil/empty), so the
+          # `preferred_username` claim is always populated when the user
+          # has at least an email address.
+          present?(candidate) ? candidate : user.email
+        end
+
+        def present?(value)
+          return false if value.nil?
+          return false if value.respond_to?(:empty?) && value.empty?
+
+          true
         end
 
         def safe_call(user, method)
