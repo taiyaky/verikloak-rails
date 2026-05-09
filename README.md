@@ -224,6 +224,95 @@ end
 | `rescue_pundit` | `VERIKLOAK_RESCUE_PUNDIT` |
 
 
+## Testing Support
+
+`verikloak-rails` ships RSpec helpers so applications no longer need to
+hand-roll their own Verikloak stubs and claim builders.
+
+### Setup
+
+Require the integration once from `spec/rails_helper.rb` (or
+`spec/spec_helper.rb`):
+
+```ruby
+require "verikloak/rails/testing/rspec"
+```
+
+This mixes `Verikloak::Rails::Testing::Helpers` into request and policy
+specs, and registers three shared contexts:
+
+- `"with verikloak admin auth"`  — authenticates as an admin (`groups: ["/admin"]`)
+- `"with verikloak user auth"`   — authenticates as a regular user (`groups: ["/user"]`)
+- `"with verikloak custom auth"` — uses `let(:verikloak_groups)` /
+  `let(:verikloak_extra_claims)` to customise the injected claims
+
+> Controller specs (`type: :controller`) bypass the Rack middleware
+> stack, so `stub_verikloak_middleware` cannot inject claims through
+> them. Prefer `type: :request`; if you must use a controller spec,
+> set `request.env['verikloak.user']`/`request.env['verikloak.token']`
+> directly in a `before` block.
+
+The shared contexts assume a `current_user` factory exists (e.g.
+`create(:user)`); override `let(:current_user)` to inject a different
+object. The user object is duck-typed and only needs to respond to `uid`
+and `email` (with optional `username` / `preferred_username` /
+`first_name` / `last_name`).
+
+### Request specs
+
+```ruby
+RSpec.describe "Users API", type: :request do
+  include_context "with verikloak admin auth"
+
+  it "returns the users list" do
+    get "/api/v1/users"
+    expect(response).to have_http_status(:ok)
+  end
+end
+```
+
+Or call the helpers directly when you need a custom claim shape:
+
+```ruby
+RSpec.describe "Custom claims", type: :request do
+  let(:user) { create(:user) }
+
+  before do
+    claims = build_jwt_claims(
+      user,
+      groups: ["/custom-group"],
+      extra_claims: { "custom" => "value" }
+    )
+    stub_verikloak_middleware(claims)
+  end
+end
+```
+
+`stub_verikloak_middleware` automatically also stubs
+`Verikloak::BFF::HeaderGuard` and `Verikloak::Audience::Middleware` when
+those gems are loaded, and sets `env['verikloak.token']` so controller
+helpers like `current_token` work.
+
+### Policy specs (with `verikloak-pundit`)
+
+When `verikloak-pundit` is loaded, `Verikloak::Pundit::UserContext`
+builders become available:
+
+```ruby
+RSpec.describe UserPolicy, type: :policy do
+  let(:user) { create(:user) }
+  let(:admin_context) { build_admin_user_context(user) }
+  let(:user_context)  { build_user_user_context(user) }
+
+  it "allows admin to index" do
+    expect(described_class.new(admin_context, User).index?).to be true
+  end
+end
+```
+
+If `verikloak-pundit` is not loaded, calling the `*_user_context`
+builders raises a clear error.
+
 ## Errors
 This gem standardizes JSON error responses and HTTP statuses. See [ERRORS.md](ERRORS.md) for details and examples.
 
