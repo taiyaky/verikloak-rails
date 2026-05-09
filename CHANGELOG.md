@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-05-09
+
+### Added
+- **RSpec testing helpers** (`Verikloak::Rails::Testing`): a reusable
+  test-support layer so applications no longer have to hand-roll their
+  own Verikloak stubs/claim builders. Composed of three independent
+  modules — `ClaimsBuilder` (build OIDC-shaped claim Hashes from a
+  user-like object), `MiddlewareStub` (stub `Verikloak::Middleware` and,
+  when loaded, `Verikloak::BFF::HeaderGuard` /
+  `Verikloak::Audience::Middleware` to inject claims into
+  `env['verikloak.user']`), and `Helpers` (top-level mix-in plus
+  `Verikloak::Pundit::UserContext` builders when `verikloak-pundit` is
+  loaded). Require `verikloak/rails/testing/rspec` from your
+  `rails_helper.rb` to mix the helpers into request/controller/policy
+  specs and to register the `with verikloak admin auth`,
+  `with verikloak user auth`, and `with verikloak custom auth` shared
+  contexts. See README "Testing Support" for usage.
+
+---
+
 ## [1.0.1] - 2026-03-08
 
 ### Fixed
