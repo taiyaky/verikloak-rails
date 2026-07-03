@@ -36,7 +36,14 @@ RSpec.describe Verikloak::Rails::Controller do
   end
 
   before do
-    Verikloak::Rails.instance_variable_set(:@config, nil)
+    Verikloak::Rails.reset!
+  end
+
+  # Several groups below mutate the process-global configuration (custom env
+  # keys, render_500_json, rescue_pundit); reset it afterwards so the values
+  # cannot leak into other spec files under random ordering.
+  after do
+    Verikloak::Rails.reset!
   end
 
   describe '#current_token' do
@@ -74,6 +81,45 @@ RSpec.describe Verikloak::Rails::Controller do
 
     it 'treats the request as authenticated' do
       expect(controller.authenticated?).to be(true)
+    end
+  end
+
+  describe 'error handler registration at include time' do
+    let(:registering_class) do
+      Class.new do
+        class << self
+          def rescued_classes = (@rescued_classes ||= [])
+          def before_action(*) = nil
+          def around_action(*) = nil
+
+          def rescue_from(klass, **_opts, &_block)
+            rescued_classes << klass
+          end
+        end
+      end
+    end
+
+    before do
+      stub_const('Pundit::NotAuthorizedError', Class.new(StandardError))
+    end
+
+    it 'skips the StandardError and Pundit handlers when disabled, preserving cause-chain traversal' do
+      Verikloak::Rails.config.render_500_json = false
+      Verikloak::Rails.config.rescue_pundit = false
+
+      registering_class.include(described_class)
+
+      expect(registering_class.rescued_classes).to eq([Verikloak::Error])
+    end
+
+    it 'registers both handlers when enabled at include time' do
+      Verikloak::Rails.config.render_500_json = true
+      Verikloak::Rails.config.rescue_pundit = true
+
+      registering_class.include(described_class)
+
+      expect(registering_class.rescued_classes)
+        .to eq([StandardError, Pundit::NotAuthorizedError, Verikloak::Error])
     end
   end
 

@@ -12,6 +12,17 @@ require_relative '../../stubs/verikloak/middleware'
 require 'verikloak/rails'
 
 RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
+  describe 'initializer ordering' do
+    it 'fires the controller auto-include hook after verikloak.configure' do
+      # The concern reads render_500_json / rescue_pundit at include time, so
+      # when ActionController is already loaded (on_load fires immediately at
+      # hook registration) the configuration must have been applied first.
+      controller_initializer = described_class.initializers.find { |i| i.name == 'verikloak.controller' }
+
+      expect(controller_initializer.after).to eq('verikloak.configure')
+    end
+  end
+
   describe '.middleware_insert_after_candidates' do
     let(:railtie) { described_class }
     

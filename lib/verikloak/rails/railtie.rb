@@ -39,8 +39,13 @@ module Verikloak
       # Optionally include the controller concern when ActionController loads.
       # Supports both ActionController::Base and ActionController::API (API mode).
       # Skips inclusion if the controller already includes the concern.
+      #
+      # Registered after `verikloak.configure` so that when ActionController
+      # is already loaded (and the on_load hook therefore fires immediately),
+      # the concern's include-time reads of `render_500_json` / `rescue_pundit`
+      # see the application's final configuration instead of defaults.
       # @return [void]
-      initializer 'verikloak.controller' do |_app|
+      initializer 'verikloak.controller', after: 'verikloak.configure' do |_app|
         %i[action_controller_base action_controller_api].each do |hook|
           ActiveSupport.on_load(hook) do
             next if include?(Verikloak::Rails::Controller) # Already included, skip

@@ -55,7 +55,7 @@ The helpers follow this priority order:
 1. **Primary**: `request.env` (Rack environment) - Set directly by `Verikloak::Middleware`
 2. **Fallback**: `RequestStore.store` (when available) - Thread-local storage for code running outside the controller
 
-When the [`request_store`](https://rubygems.org/gems/request_store) gem is on the load path, the Railtie automatically inserts `Verikloak::Rails::RequestStoreMirror` right after `Verikloak::Middleware`. It mirrors the claims/token from the Rack env into `RequestStore.store` on every request, so the fallback works out of the box (e.g. in service objects or jobs enqueued during the request).
+When the [`request_store`](https://rubygems.org/gems/request_store) gem is on the load path, the Railtie automatically inserts `Verikloak::Rails::RequestStoreMirror` right after `Verikloak::Middleware`. It mirrors the claims/token from the Rack env into `RequestStore.store` on every request, so the fallback works out of the box (e.g. in service objects or jobs enqueued during the request). The mirror overwrites `RequestStore.store[:verikloak_user]` / `[:verikloak_token]` on every request — with `nil` on unauthenticated or skipped paths — so stale context never leaks between requests; if you previously mirrored these keys by hand, remove your own writer when upgrading. Mirroring failures never break the request and are logged once so a dead fallback does not go unnoticed.
 
 **Examples:**
 

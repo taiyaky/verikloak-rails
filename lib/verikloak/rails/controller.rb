@@ -15,17 +15,18 @@ module Verikloak
 
       included do
         before_action :authenticate_user!
-        # Handlers are registered unconditionally and consult the configuration
-        # at request time, so settings applied after this concern is included
-        # (e.g. by initializers that load ActionController early) still take
-        # effect. Generic handler first so specific handlers take precedence.
-        rescue_from StandardError do |e|
-          _verikloak_handle_standard_error(e)
-        end
-        if defined?(::Pundit::NotAuthorizedError)
-          rescue_from ::Pundit::NotAuthorizedError do |e|
-            _verikloak_handle_pundit_error(e)
-          end
+        # Handlers are only registered when enabled at include time: a
+        # registered-but-disabled `rescue_from StandardError` would suppress
+        # ActiveSupport::Rescuable's `exception.cause` traversal and shadow
+        # handlers registered earlier on the same class (re-raising from
+        # inside a handler consults no other handler). The Railtie fires the
+        # auto-include hook after `verikloak.configure`, so these flags are
+        # final here; the same applies to `defined?(::Pundit::NotAuthorizedError)`,
+        # which requires Pundit to be loaded before this concern is included.
+        # Generic handler first so specific handlers take precedence.
+        rescue_from StandardError, with: :_verikloak_handle_standard_error if Verikloak::Rails.config.render_500_json
+        if defined?(::Pundit::NotAuthorizedError) && Verikloak::Rails.config.rescue_pundit
+          rescue_from ::Pundit::NotAuthorizedError, with: :_verikloak_handle_pundit_error
         end
         rescue_from ::Verikloak::Error do |e|
           Verikloak::Rails.config.error_renderer.render(self, e)
@@ -90,8 +91,9 @@ module Verikloak
 
       # Handle uncaught StandardError: render the generic JSON 500 when
       # `render_500_json` is enabled, otherwise re-raise so Rails' default
-      # error handling applies. Evaluated per request so late configuration
-      # changes take effect.
+      # error handling applies. The handler is only registered when the flag
+      # is enabled at include time; this request-time check additionally lets
+      # a runtime opt-out take effect.
       #
       # @param exception [StandardError]
       # @return [void]
@@ -103,20 +105,17 @@ module Verikloak
       end
 
       # Handle `Pundit::NotAuthorizedError`: render 403 JSON when
-      # `rescue_pundit` is enabled; otherwise defer to the 500 renderer or
-      # re-raise, matching what would happen if this handler were absent.
+      # `rescue_pundit` is enabled; otherwise fall through to the generic
+      # StandardError handling (500 JSON or re-raise).
       #
       # @param exception [StandardError]
       # @return [void]
       # @raise [StandardError] the original exception when both rescues are disabled
       def _verikloak_handle_pundit_error(exception)
-        config = Verikloak::Rails.config
-        if config.rescue_pundit
+        if Verikloak::Rails.config.rescue_pundit
           render json: { error: 'forbidden', message: exception.message }, status: :forbidden
-        elsif config.render_500_json
-          _verikloak_render_internal_error(exception)
         else
-          raise exception
+          _verikloak_handle_standard_error(exception)
         end
       end
 

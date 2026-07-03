@@ -49,11 +49,14 @@ module Verikloak
         end
 
         def install_passthrough_stub(middleware_class, claims, token)
-          user_key  = stub_user_env_key
-          token_key = stub_token_env_key
+          # Env keys are resolved inside the stubbed call — i.e. when the
+          # request runs, not when the stub is installed — so configuration
+          # applied after `stub_verikloak_middleware` (an inner context or a
+          # lazily booted app setting custom env keys) still lines up with
+          # the controller helpers' request-time key resolution.
           allow_any_instance_of(middleware_class).to receive(:call) do |instance, env|
-            env[user_key]  = claims
-            env[token_key] = token if token
+            env[stub_user_env_key]  = claims
+            env[stub_token_env_key] = token if token
             inner_app = instance.instance_variable_get(:@app)
             inner_app.call(env)
           end

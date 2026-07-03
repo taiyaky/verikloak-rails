@@ -68,6 +68,22 @@ RSpec.describe Verikloak::Rails::Testing::MiddlewareStub do
       expect(env['custom.token']).to eq(described_class::DEFAULT_STUB_TOKEN)
       expect(env).not_to have_key('verikloak.user')
     end
+
+    it 'honors env keys configured after the stub is installed' do
+      inner_app = ->(_env) { [204, {}, []] }
+      middleware = Verikloak::Middleware.new(inner_app)
+
+      stub_verikloak_middleware(claims)
+      Verikloak::Rails.config.user_env_key = 'late.user'
+      Verikloak::Rails.config.token_env_key = 'late.token'
+
+      env = {}
+      middleware.call(env)
+
+      expect(env['late.user']).to eq(claims)
+      expect(env['late.token']).to eq(described_class::DEFAULT_STUB_TOKEN)
+      expect(env).not_to have_key('custom.user')
+    end
   end
 
   it 'also stubs Verikloak::BFF::HeaderGuard when loaded' do

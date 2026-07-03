@@ -76,17 +76,35 @@ RSpec.describe Verikloak::Rails::RequestStoreMirror do
       expect(seen).to equal(env)
     end
 
-    it 'never breaks the request when mirroring fails' do
+    it 'never breaks the request and logs a warning when mirroring fails' do
       broken_store = Class.new do
         def self.store
           raise StandardError, 'store unavailable'
         end
       end
       stub_const('RequestStore', broken_store)
+      allow(Verikloak::Rails::RailtieLogger).to receive(:warn)
 
       status, = middleware.call({})
 
       expect(status).to eq(200)
+      expect(Verikloak::Rails::RailtieLogger).to have_received(:warn)
+        .with(/RequestStoreMirror could not mirror the request context: StandardError: store unavailable/)
+    end
+
+    it 'warns only on the first failure to avoid flooding the log' do
+      broken_store = Class.new do
+        def self.store
+          raise StandardError, 'store unavailable'
+        end
+      end
+      stub_const('RequestStore', broken_store)
+      allow(Verikloak::Rails::RailtieLogger).to receive(:warn)
+
+      middleware.call({})
+      middleware.call({})
+
+      expect(Verikloak::Rails::RailtieLogger).to have_received(:warn).once
     end
   end
 

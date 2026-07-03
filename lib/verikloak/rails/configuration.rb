@@ -115,8 +115,11 @@ module Verikloak
 
       # Rack env key actually used for the bearer token: the configured
       # `token_env_key`, or the core middleware default when unset/blank.
-      # Shared by the controller helpers, RequestStore mirroring, and the
-      # testing middleware stub so all layers stay in sync.
+      # The value is whitespace-stripped to match the normalization the core
+      # middleware applies before writing to the env, so readers and writer
+      # always agree on the key. Shared by the controller helpers,
+      # RequestStore mirroring, and the testing middleware stub so all
+      # layers stay in sync.
       # @return [String]
       def effective_token_env_key
         presence_or_default(token_env_key, DEFAULT_TOKEN_ENV_KEY)
@@ -124,6 +127,7 @@ module Verikloak
 
       # Rack env key actually used for decoded claims: the configured
       # `user_env_key`, or the core middleware default when unset/blank.
+      # Whitespace-stripped like {#effective_token_env_key}.
       # @return [String]
       def effective_user_env_key
         presence_or_default(user_env_key, DEFAULT_USER_ENV_KEY)
@@ -153,9 +157,12 @@ module Verikloak
 
       # @param value [String, nil]
       # @param default [String]
-      # @return [String]
+      # @return [String] the stripped value, or the default when blank.
+      #   Stripping mirrors the core middleware's env-key normalization
+      #   (`value.to_s.strip`); without it a padded key would make the
+      #   middleware write one env key while the helpers read another.
       def presence_or_default(value, default)
-        str = value.to_s
+        str = value.to_s.strip
         str.empty? ? default : str
       end
     end
