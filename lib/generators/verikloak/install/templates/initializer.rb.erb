@@ -13,6 +13,11 @@ Rails.application.configure do
   # JWT clock skew tolerance in seconds
   config.verikloak.leeway = Integer(ENV.fetch('VERIKLOAK_LEEWAY', '60'))
 
+  # Minimum seconds between JWKS refresh checks on the request path.
+  # Leave unset to keep the verikloak default (60); 0 revalidates on every
+  # request.
+  # config.verikloak.jwks_refresh_interval = Integer(ENV.fetch('VERIKLOAK_JWKS_REFRESH_INTERVAL', '60'))
+
   # Paths to skip authentication (health checks, etc.)
   config.verikloak.skip_paths = %w[/up /health /rails/health]
 

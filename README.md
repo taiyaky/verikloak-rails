@@ -53,7 +53,9 @@ Then configure `config/initializers/verikloak.rb`.
 The helpers follow this priority order:
 
 1. **Primary**: `request.env` (Rack environment) - Set directly by `Verikloak::Middleware`
-2. **Fallback**: `RequestStore.store` (when available) - Thread-local storage for background jobs
+2. **Fallback**: `RequestStore.store` (when available) - Thread-local storage for code running outside the controller
+
+When the [`request_store`](https://rubygems.org/gems/request_store) gem is on the load path, the Railtie automatically inserts `Verikloak::Rails::RequestStoreMirror` right after `Verikloak::Middleware`. It mirrors the claims/token from the Rack env into `RequestStore.store` on every request, so the fallback works out of the box (e.g. in service objects or jobs enqueued during the request). The mirror overwrites `RequestStore.store[:verikloak_user]` / `[:verikloak_token]` on every request — with `nil` on unauthenticated or skipped paths — so stale context never leaks between requests; if you previously mirrored these keys by hand, remove your own writer when upgrading. Mirroring failures never break the request and are logged once so a dead fallback does not go unnoticed.
 
 **Examples:**
 
@@ -62,8 +64,8 @@ The helpers follow this priority order:
 current_user_claims  # reads from request.env['verikloak.user']
 current_token        # reads from request.env['verikloak.token']
 
-# In a background job triggered during request
-# (when RequestStore gem is present and middleware has mirrored values)
+# Outside the controller during the same request
+# (when the request_store gem is present; mirrored automatically)
 current_user_claims  # falls back to RequestStore.store[:verikloak_user]
 current_token        # falls back to RequestStore.store[:verikloak_token]
 
@@ -124,6 +126,7 @@ end
 | --- | --- | --- |
 | `Verikloak::Bff::HeaderGuard` (optional) | Before `Verikloak::Middleware` by default when the gem is present | Normalize or enforce trusted proxy headers such as `X-Forwarded-Access-Token` |
 | `Verikloak::Middleware` | After `Rails::Rack::Logger` by default (configurable) | Validate Bearer JWT (OIDC discovery + JWKS), set `verikloak.user`/`verikloak.token`, and honor `skip_paths` |
+| `Verikloak::Rails::RequestStoreMirror` (optional) | After `Verikloak::Middleware`, when the `request_store` gem is present | Mirror `verikloak.user`/`verikloak.token` into `RequestStore.store` for the controller helpers' fallback |
 
 ### BFF Integration
 Support for BFF header handling (e.g., normalizing or enforcing `X-Forwarded-Access-Token`) now lives in a dedicated gem: verikloak-bff.
@@ -169,6 +172,7 @@ Keys under `config.verikloak`:
 | `user_env_key` | String | Custom Rack env key that stores decoded claims | `nil` (middleware default `verikloak.user`) |
 | `bff_header_guard_options` | Hash or Proc | Forwarded to `Verikloak::BFF.configure` prior to middleware insertion | `{}` |
 | `allow_http` | Boolean | Allow `http://` discovery URLs (forwarded to core middleware). **Only for development/test.** | `false` |
+| `jwks_refresh_interval` | Numeric or nil | Minimum seconds between JWKS revalidations on the request path; `0` revalidates on every request (pre-verikloak-1.1 behavior). Key rotation within the window still forces an immediate refresh. Numeric strings are coerced. | `nil` (verikloak default `60`) |
 
 Environment variable examples are in the generated initializer.
 
@@ -220,6 +224,7 @@ end
 | `audience` | `VERIKLOAK_AUDIENCE` |
 | `issuer` | `VERIKLOAK_ISSUER` |
 | `leeway` | `VERIKLOAK_LEEWAY` |
+| `jwks_refresh_interval` | `VERIKLOAK_JWKS_REFRESH_INTERVAL` |
 | `render_500_json` | `VERIKLOAK_RENDER_500` |
 | `rescue_pundit` | `VERIKLOAK_RESCUE_PUNDIT` |
 
@@ -291,7 +296,8 @@ end
 `stub_verikloak_middleware` automatically also stubs
 `Verikloak::BFF::HeaderGuard` and `Verikloak::Audience::Middleware` when
 those gems are loaded, and sets `env['verikloak.token']` so controller
-helpers like `current_token` work.
+helpers like `current_token` work. Custom `user_env_key` / `token_env_key`
+settings are honored automatically.
 
 ### Policy specs (with `verikloak-pundit`)
 

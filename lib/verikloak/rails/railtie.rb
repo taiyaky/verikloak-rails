@@ -1,9 +1,13 @@
 # frozen_string_literal: true
 
+require 'active_support'
+require 'active_support/core_ext/module/delegation'
+require 'active_support/core_ext/object/blank'
 require 'rails/railtie'
 require 'verikloak/middleware'
 require_relative 'railtie_logger'
 require_relative 'bff_configurator'
+require_relative 'request_store_mirror'
 
 module Verikloak
   module Rails
@@ -20,7 +24,7 @@ module Verikloak
         middleware_insert_after auto_insert_bff_header_guard
         bff_header_guard_insert_before bff_header_guard_insert_after
         token_verify_options decoder_cache_limit token_env_key user_env_key
-        bff_header_guard_options allow_http
+        bff_header_guard_options allow_http jwks_refresh_interval
       ].freeze
 
       config.verikloak = ActiveSupport::OrderedOptions.new
@@ -35,8 +39,13 @@ module Verikloak
       # Optionally include the controller concern when ActionController loads.
       # Supports both ActionController::Base and ActionController::API (API mode).
       # Skips inclusion if the controller already includes the concern.
+      #
+      # Registered after `verikloak.configure` so that when ActionController
+      # is already loaded (and the on_load hook therefore fires immediately),
+      # the concern's include-time reads of `render_500_json` / `rescue_pundit`
+      # see the application's final configuration instead of defaults.
       # @return [void]
-      initializer 'verikloak.controller' do |_app|
+      initializer 'verikloak.controller', after: 'verikloak.configure' do |_app|
         %i[action_controller_base action_controller_api].each do |hook|
           ActiveSupport.on_load(hook) do
             next if include?(Verikloak::Rails::Controller) # Already included, skip
@@ -63,22 +72,33 @@ module Verikloak
           end
 
           stack = insert_base_middleware(app)
-          BffConfigurator.configure_bff_guard(stack) if stack
+          if stack
+            insert_request_store_mirror(stack)
+            BffConfigurator.configure_bff_guard(stack)
+          end
 
           stack
         end
 
-        # Check if discovery_url is present and valid.
+        # Check if discovery_url is configured (non-blank).
         #
-        # @return [Boolean] true if discovery_url is configured and not empty
+        # @return [Boolean]
         def discovery_url_present?
-          discovery_url = Verikloak::Rails.config.discovery_url
-          return false unless discovery_url
+          Verikloak::Rails.config.discovery_url.present?
+        end
 
-          return !discovery_url.blank? if discovery_url.respond_to?(:blank?)
-          return !discovery_url.empty? if discovery_url.respond_to?(:empty?)
+        # Mirror Verikloak env values into RequestStore when the gem is
+        # present, so the controller helpers' RequestStore fallback works
+        # outside the request cycle (e.g. jobs enqueued during a request).
+        #
+        # @param stack [ActionDispatch::MiddlewareStackProxy]
+        # @return [void]
+        def insert_request_store_mirror(stack)
+          return unless defined?(::RequestStore)
 
-          true
+          stack.insert_after ::Verikloak::Middleware, RequestStoreMirror
+        rescue StandardError => e
+          RailtieLogger.warn("[verikloak] Unable to insert RequestStoreMirror: #{e.message}")
         end
 
         # Log a warning message when discovery_url is missing.

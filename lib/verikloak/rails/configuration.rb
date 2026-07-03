@@ -56,6 +56,12 @@ module Verikloak
     #   Rack middleware to insert the header guard after.
     #   @return [Object, String, Symbol, nil]
     class Configuration
+      # Default Rack env keys. These mirror the defaults used by the core
+      # `Verikloak::Middleware` and are the fallback when `token_env_key` /
+      # `user_env_key` are left unset.
+      DEFAULT_TOKEN_ENV_KEY = 'verikloak.token'
+      DEFAULT_USER_ENV_KEY  = 'verikloak.user'
+
       attr_accessor :discovery_url, :audience, :issuer, :leeway,
                     :logger_tags, :error_renderer, :auto_include_controller,
                     :render_500_json, :rescue_pundit,
@@ -64,7 +70,7 @@ module Verikloak
                     :bff_header_guard_insert_before, :bff_header_guard_insert_after,
                     :token_verify_options, :decoder_cache_limit,
                     :token_env_key, :user_env_key, :bff_header_guard_options,
-                    :allow_http
+                    :allow_http, :jwks_refresh_interval
 
       attr_reader :skip_paths
 
@@ -92,6 +98,7 @@ module Verikloak
         @user_env_key = nil
         @bff_header_guard_options = {}
         @allow_http = false
+        @jwks_refresh_interval = nil
         @skip_path_matcher = nil
       end
 
@@ -105,6 +112,26 @@ module Verikloak
       # @return [Verikloak::Rails::SkipPathChecker]
       def skip_path_matcher
         @skip_path_matcher ||= SkipPathChecker.new(skip_paths)
+      end
+
+      # Rack env key actually used for the bearer token: the configured
+      # `token_env_key`, or the core middleware default when unset/blank.
+      # The value is whitespace-stripped to match the normalization the core
+      # middleware applies before writing to the env, so readers and writer
+      # always agree on the key. Shared by the controller helpers,
+      # RequestStore mirroring, and the testing middleware stub so all
+      # layers stay in sync.
+      # @return [String]
+      def effective_token_env_key
+        presence_or_default(token_env_key, DEFAULT_TOKEN_ENV_KEY)
+      end
+
+      # Rack env key actually used for decoded claims: the configured
+      # `user_env_key`, or the core middleware default when unset/blank.
+      # Whitespace-stripped like {#effective_token_env_key}.
+      # @return [String]
+      def effective_user_env_key
+        presence_or_default(user_env_key, DEFAULT_USER_ENV_KEY)
       end
 
       # Options forwarded to the base Verikloak Rack middleware.
@@ -123,8 +150,22 @@ module Verikloak
           decoder_cache_limit: decoder_cache_limit,
           token_env_key: token_env_key,
           user_env_key: user_env_key,
-          allow_http: allow_http
+          allow_http: allow_http,
+          jwks_refresh_interval: jwks_refresh_interval
         }.compact
+      end
+
+      private
+
+      # @param value [String, nil]
+      # @param default [String]
+      # @return [String] the stripped value, or the default when blank.
+      #   Stripping mirrors the core middleware's env-key normalization
+      #   (`value.to_s.strip`); without it a padded key would make the
+      #   middleware write one env key while the helpers read another.
+      def presence_or_default(value, default)
+        str = value.to_s.strip
+        str.empty? ? default : str
       end
     end
   end

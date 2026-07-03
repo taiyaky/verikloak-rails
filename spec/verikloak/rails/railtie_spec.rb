@@ -12,6 +12,17 @@ require_relative '../../stubs/verikloak/middleware'
 require 'verikloak/rails'
 
 RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
+  describe 'initializer ordering' do
+    it 'fires the controller auto-include hook after verikloak.configure' do
+      # The concern reads render_500_json / rescue_pundit at include time, so
+      # when ActionController is already loaded (on_load fires immediately at
+      # hook registration) the configuration must have been applied first.
+      controller_initializer = described_class.initializers.find { |i| i.name == 'verikloak.controller' }
+
+      expect(controller_initializer.after).to eq('verikloak.configure')
+    end
+  end
+
   describe '.middleware_insert_after_candidates' do
     let(:railtie) { described_class }
     
@@ -53,6 +64,37 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
         expect(candidates).to include(::Rails::Rack::Logger)
         expect(candidates).to include(::ActionDispatch::Executor)
       end
+    end
+  end
+
+  describe '.insert_request_store_mirror' do
+    let(:railtie) { described_class }
+    let(:middleware_stack) { double('MiddlewareStack') }
+
+    it 'inserts the mirror after the base middleware when RequestStore is defined' do
+      stub_const('RequestStore', Class.new)
+
+      expect(middleware_stack).to receive(:insert_after)
+        .with(::Verikloak::Middleware, Verikloak::Rails::RequestStoreMirror)
+
+      railtie.send(:insert_request_store_mirror, middleware_stack)
+    end
+
+    it 'does nothing when RequestStore is not defined' do
+      hide_const('RequestStore') if defined?(::RequestStore)
+
+      expect(middleware_stack).not_to receive(:insert_after)
+
+      railtie.send(:insert_request_store_mirror, middleware_stack)
+    end
+
+    it 'logs a warning instead of raising when insertion fails' do
+      stub_const('RequestStore', Class.new)
+      allow(middleware_stack).to receive(:insert_after).and_raise(StandardError, 'no such middleware')
+      allow(Verikloak::Rails::RailtieLogger).to receive(:warn)
+
+      expect { railtie.send(:insert_request_store_mirror, middleware_stack) }.not_to raise_error
+      expect(Verikloak::Rails::RailtieLogger).to have_received(:warn).with(/RequestStoreMirror/)
     end
   end
 

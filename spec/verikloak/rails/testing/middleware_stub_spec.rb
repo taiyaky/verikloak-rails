@@ -43,6 +43,49 @@ RSpec.describe Verikloak::Rails::Testing::MiddlewareStub do
     expect(env['verikloak.token']).to eq('custom-token')
   end
 
+  context 'when custom env keys are configured on Verikloak::Rails' do
+    before do
+      require 'verikloak/rails'
+      Verikloak::Rails.reset!
+      Verikloak::Rails.config.user_env_key = 'custom.user'
+      Verikloak::Rails.config.token_env_key = 'custom.token'
+    end
+
+    after do
+      Verikloak::Rails.reset!
+    end
+
+    it 'injects claims and token into the configured keys' do
+      inner_app = ->(_env) { [204, {}, []] }
+      middleware = Verikloak::Middleware.new(inner_app)
+
+      stub_verikloak_middleware(claims)
+
+      env = {}
+      middleware.call(env)
+
+      expect(env['custom.user']).to eq(claims)
+      expect(env['custom.token']).to eq(described_class::DEFAULT_STUB_TOKEN)
+      expect(env).not_to have_key('verikloak.user')
+    end
+
+    it 'honors env keys configured after the stub is installed' do
+      inner_app = ->(_env) { [204, {}, []] }
+      middleware = Verikloak::Middleware.new(inner_app)
+
+      stub_verikloak_middleware(claims)
+      Verikloak::Rails.config.user_env_key = 'late.user'
+      Verikloak::Rails.config.token_env_key = 'late.token'
+
+      env = {}
+      middleware.call(env)
+
+      expect(env['late.user']).to eq(claims)
+      expect(env['late.token']).to eq(described_class::DEFAULT_STUB_TOKEN)
+      expect(env).not_to have_key('custom.user')
+    end
+  end
+
   it 'also stubs Verikloak::BFF::HeaderGuard when loaded' do
     bff_class = Class.new do
       def initialize(app) = (@app = app)

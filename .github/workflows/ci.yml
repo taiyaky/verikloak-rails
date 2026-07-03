@@ -66,6 +66,34 @@ jobs:
           name: rspec-coverage
           path: artifacts/
 
+  contracts:
+    name: Sibling gem contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435
+
+      - name: Docker Compose Build (cacheable)
+        run: docker compose build
+
+      # Runs spec/contracts against the REAL sibling gems (verikloak-bff,
+      # verikloak-pundit, verikloak-audience) so interface drift between the
+      # gems is caught even though the unit suite uses fakes.
+      - name: Run contract specs against real sibling gems
+        run: |
+          docker compose run --rm -u 0:0 \
+            -e BUNDLE_GEMFILE=gemfiles/contracts.Gemfile \
+            -e BUNDLE_FROZEN=0 \
+            -e VERIKLOAK_CONTRACTS=true \
+            dev bash -c "bundle install && bundle exec rspec spec/contracts --format documentation"
+
   rubocop:
     name: RuboCop
     runs-on: ubuntu-latest

@@ -79,6 +79,16 @@ class HelloController < ActionController::Base
   end
 end
 
+# Single source for TestApp's verikloak settings: applied to
+# `config.verikloak` at boot and re-applied by the per-example restore hook
+# below, so the two cannot drift apart.
+VERIKLOAK_TEST_CONFIG = {
+  discovery_url: 'https://example/.well-known/openid-configuration',
+  audience: 'rails-api',
+  leeway: 60,
+  render_500_json: true
+}.freeze
+
 class TestApp < Rails::Application
   config.root = File.expand_path('../..', __dir__)
   config.secret_key_base = 'test-secret-key'
@@ -91,10 +101,7 @@ class TestApp < Rails::Application
   config.logger = Logger.new(nil)
 
   # verikloak-rails configuration
-  config.verikloak.discovery_url = 'https://example/.well-known/openid-configuration'
-  config.verikloak.audience = 'rails-api'
-  config.verikloak.leeway = 60
-  config.verikloak.render_500_json = true
+  VERIKLOAK_TEST_CONFIG.each { |key, value| config.verikloak[key] = value }
 
   routes.append do
     get '/hello', to: 'hello#index'
@@ -110,6 +117,15 @@ RSpec.describe 'Rails integration', type: :request do
 
   before do
     Verikloak::Rails.reset!
+    # The Railtie applies TestApp's `config.verikloak` only once at boot, but
+    # reset! wipes the global configuration and the controller handler bodies
+    # read it at request time — so restore the TestApp configuration here
+    # (shared via VERIKLOAK_TEST_CONFIG so it cannot drift from what TestApp
+    # declares; the Railtie propagation itself is asserted in its own example
+    # below).
+    Verikloak::Rails.configure do |c|
+      VERIKLOAK_TEST_CONFIG.each { |key, value| c.public_send(:"#{key}=", value) }
+    end
   end
 
   def app
@@ -181,6 +197,20 @@ RSpec.describe 'Rails integration', type: :request do
       expect(last_response.status).to eq(403)
       body = JSON.parse(last_response.body)
       expect(body['error']).to eq('forbidden')
+    end
+  end
+
+  context 'Railtie configuration propagation' do
+    it 'copies every TestApp config.verikloak key into the global configuration' do
+      # The per-example restore hook sets these values directly, so wipe them
+      # first and prove the Railtie's own propagation path fills them back in.
+      Verikloak::Rails.reset!
+
+      ::Verikloak::Rails::Railtie.send(:apply_configuration, TestApp)
+
+      VERIKLOAK_TEST_CONFIG.each do |key, value|
+        expect(Verikloak::Rails.config.public_send(key)).to eq(value)
+      end
     end
   end
 

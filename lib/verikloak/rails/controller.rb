@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'active_support/concern'
-require 'set'
+require_relative 'controller/error_handling'
 
 module Verikloak
   module Rails
@@ -13,20 +13,24 @@ module Verikloak
     module Controller
       extend ActiveSupport::Concern
 
+      # Rescue handlers and 500-error logging (kept in a separate module so
+      # the concern itself stays focused on wiring and public helpers).
+      include ErrorHandling
+
       included do
         before_action :authenticate_user!
-        # Register generic error handler first so specific handlers take precedence.
-        if Verikloak::Rails.config.render_500_json
-          rescue_from StandardError do |e|
-            _verikloak_log_internal_error(e)
-            render json: { error: 'internal_server_error', message: 'An unexpected error occurred' },
-                   status: :internal_server_error
-          end
-        end
+        # Handlers are only registered when enabled at include time: a
+        # registered-but-disabled `rescue_from StandardError` would suppress
+        # ActiveSupport::Rescuable's `exception.cause` traversal and shadow
+        # handlers registered earlier on the same class (re-raising from
+        # inside a handler consults no other handler). The Railtie fires the
+        # auto-include hook after `verikloak.configure`, so these flags are
+        # final here; the same applies to `defined?(::Pundit::NotAuthorizedError)`,
+        # which requires Pundit to be loaded before this concern is included.
+        # Generic handler first so specific handlers take precedence.
+        rescue_from StandardError, with: :_verikloak_handle_standard_error if Verikloak::Rails.config.render_500_json
         if defined?(::Pundit::NotAuthorizedError) && Verikloak::Rails.config.rescue_pundit
-          rescue_from ::Pundit::NotAuthorizedError do |e|
-            render json: { error: 'forbidden', message: e.message }, status: :forbidden
-          end
+          rescue_from ::Pundit::NotAuthorizedError, with: :_verikloak_handle_pundit_error
         end
         rescue_from ::Verikloak::Error do |e|
           Verikloak::Rails.config.error_renderer.render(self, e)
@@ -54,17 +58,19 @@ module Verikloak
       def authenticated? = current_user_claims.present?
 
       # The verified JWT claims for the current user.
-      # Prefer Rack env; fall back to RequestStore when available.
+      # Prefer Rack env (honoring a custom `user_env_key`); fall back to
+      # RequestStore when available.
       # @return [Hash, nil]
       def current_user_claims
-        _verikloak_fetch_request_context('verikloak.user', :verikloak_user)
+        _verikloak_fetch_request_context(Verikloak::Rails.config.effective_user_env_key, :verikloak_user)
       end
 
       # The raw bearer token used for the current request.
-      # Prefer Rack env; fall back to RequestStore when available.
+      # Prefer Rack env (honoring a custom `token_env_key`); fall back to
+      # RequestStore when available.
       # @return [String, nil]
       def current_token
-        _verikloak_fetch_request_context('verikloak.token', :verikloak_token)
+        _verikloak_fetch_request_context(Verikloak::Rails.config.effective_token_env_key, :verikloak_token)
       end
 
       # The `sub` (subject) claim from the current user claims.
@@ -105,18 +111,22 @@ module Verikloak
         config = Verikloak::Rails.config
         tags = []
         if config.logger_tags.include?(:request_id)
-          rid = request.request_id || request.headers['X-Request-Id']
-          rid = rid.to_s.gsub(/[[:cntrl:]]+/, ' ').strip
-          tags << "req:#{rid}" unless rid.empty?
+          rid = _verikloak_sanitize_tag(request.request_id || request.headers['X-Request-Id'])
+          tags << "req:#{rid}" if rid
         end
         if config.logger_tags.include?(:sub)
-          sub = current_subject
-          if sub
-            sanitized = sub.to_s.gsub(/[[:cntrl:]]+/, ' ').strip
-            tags << "sub:#{sanitized}" unless sanitized.empty?
-          end
+          sub = _verikloak_sanitize_tag(current_subject)
+          tags << "sub:#{sub}" if sub
         end
         tags
+      end
+
+      # Strip control characters and surrounding whitespace from a log tag value.
+      # @param value [Object, nil]
+      # @return [String, nil] sanitized value, or nil when blank
+      def _verikloak_sanitize_tag(value)
+        sanitized = value.to_s.gsub(/[[:cntrl:]]+/, ' ').strip
+        sanitized.empty? ? nil : sanitized
       end
 
       # Retrieve request context from Rack env or RequestStore.
@@ -132,46 +142,6 @@ module Verikloak
         return unless store.respond_to?(:[])
 
         store[store_key]
-      end
-
-      # Write StandardError details to the controller or Rails logger when
-      # rendering the generic 500 JSON response. Logging ensures the
-      # underlying failure is still visible to operators even though the
-      # response body is static.
-      #
-      # @param exception [Exception]
-      # @return [void]
-      def _verikloak_log_internal_error(exception)
-        target_logger = _verikloak_base_logger
-        return unless target_logger.respond_to?(:error)
-
-        target_logger.error("[Verikloak] #{exception.class}: #{exception.message}")
-        backtrace = exception.backtrace
-        target_logger.error(backtrace.join("\n")) if backtrace&.any?
-      rescue StandardError
-        # Never allow logging failures to interfere with request handling.
-        nil
-      end
-
-      # Locate the innermost logger that responds to `error`.
-      # @return [Object, nil]
-      def _verikloak_base_logger
-        root_logger = if defined?(::Rails) && ::Rails.respond_to?(:logger)
-                        ::Rails.logger
-                      elsif respond_to?(:logger)
-                        logger
-                      end
-        current = root_logger
-        seen = Set.new
-        while current.respond_to?(:logger)
-          break unless seen.add?(current.object_id)
-
-          next_logger = current.logger
-          break if next_logger.nil? || next_logger.equal?(current)
-
-          current = next_logger
-        end
-        current
       end
     end
   end

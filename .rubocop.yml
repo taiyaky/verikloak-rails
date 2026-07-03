@@ -37,10 +37,10 @@ Metrics/AbcSize:
   Max: 24                  # Slightly relaxed to avoid false positives on complex, well-tested methods
 
 Metrics/CyclomaticComplexity:
-  Max: 12                  # Allow up to 15 independent code paths
+  Max: 12                  # Allow up to 12 independent code paths
 
 Metrics/PerceivedComplexity:
-  Max: 12                  # Allow perceived complexity up to 15
+  Max: 12                  # Allow perceived complexity up to 12
 
 Metrics/ParameterLists:
   Max: 10                  # Allow up to 10 method parameters
