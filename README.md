@@ -172,7 +172,7 @@ Keys under `config.verikloak`:
 | `user_env_key` | String | Custom Rack env key that stores decoded claims | `nil` (middleware default `verikloak.user`) |
 | `bff_header_guard_options` | Hash or Proc | Forwarded to `Verikloak::BFF.configure` prior to middleware insertion | `{}` |
 | `allow_http` | Boolean | Allow `http://` discovery URLs (forwarded to core middleware). **Only for development/test.** | `false` |
-| `jwks_refresh_interval` | Numeric or nil | Minimum seconds between JWKS revalidations on the request path; `0` revalidates on every request (pre-verikloak-1.1 behavior). Key rotation within the window still forces an immediate refresh. Numeric strings are coerced. Setting this requires verikloak >= 1.1.0. | `nil` (verikloak default `60`) |
+| `jwks_refresh_interval` | Numeric or nil | Minimum seconds between JWKS revalidations on the request path; `0` revalidates on every request (pre-verikloak-1.1 behavior). Key rotation within the window still forces an immediate refresh. Numeric strings are coerced. | `nil` (verikloak default `60`) |
 
 Environment variable examples are in the generated initializer.
 

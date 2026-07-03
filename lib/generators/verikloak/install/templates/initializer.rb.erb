@@ -15,7 +15,7 @@ Rails.application.configure do
 
   # Minimum seconds between JWKS refresh checks on the request path.
   # Leave unset to keep the verikloak default (60); 0 revalidates on every
-  # request. Requires verikloak >= 1.1.0 when set.
+  # request.
   # config.verikloak.jwks_refresh_interval = Integer(ENV.fetch('VERIKLOAK_JWKS_REFRESH_INTERVAL', '60'))
 
   # Paths to skip authentication (health checks, etc.)
