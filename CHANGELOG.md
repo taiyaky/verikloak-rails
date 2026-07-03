@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [1.2.1] - 2026-07-03
 
 ### Fixed
 - **CI coverage was silently never measured**: the RSpec step set `SIMPLECOV: true` as step-level env, but `docker compose run` does not pass host env vars into the container, so `spec_helper` never enabled SimpleCov and the uploaded `rspec-coverage` artifact contained no report. The step now forwards it explicitly (`docker compose run -e SIMPLECOV`), matching verikloak core.
