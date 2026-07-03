@@ -1,0 +1,23 @@
+# frozen_string_literal: true
+
+# Gemfile for the CI compatibility matrix (Ruby 3.1/3.2/3.3; the docker-based
+# `rspec` job covers the pinned development Ruby 3.4).
+#
+# The main Gemfile.lock pins Rails 8.1 and zeitwerk 2.7, which require
+# Ruby >= 3.2, so it cannot install on every interpreter the gemspec claims
+# via `required_ruby_version >= 3.1`. This file carries only what the unit
+# suite needs and lets each matrix Ruby resolve the newest Rails it supports
+# (7.2 on Ruby 3.1, 8.1 on 3.2+), which also covers a Rails series older
+# than the pinned development one. It does not exercise the declared
+# Rails minimum (>= 6.1).
+source 'https://rubygems.org'
+
+gemspec path: '..'
+
+group :development, :test do
+  gem 'rspec', '~> 3.13'
+end
+
+group :test do
+  gem 'rack-test', '~> 2.1'
+end
