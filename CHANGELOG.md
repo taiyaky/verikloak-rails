@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **CI coverage was silently never measured**: the RSpec step set `SIMPLECOV: true` as step-level env, but `docker compose run` does not pass host env vars into the container, so `spec_helper` never enabled SimpleCov and the uploaded `rspec-coverage` artifact contained no report. The step now forwards it explicitly (`docker compose run -e SIMPLECOV`), matching verikloak core.
+
+### Added
+- **CI Ruby compatibility matrix (3.1/3.2/3.3)**: a new non-docker `compatibility` job verifies the gemspec's `required_ruby_version >= 3.1` claim on every supported minor Ruby (the docker `rspec` job keeps covering the pinned development Ruby 3.4). It bundles with the new `gemfiles/compat.gemfile` because the main `Gemfile.lock` pins Rails 8.1 / zeitwerk 2.7 (Ruby >= 3.2 only); each matrix Ruby resolves the newest Rails it supports (7.2 on 3.1, 8.1 on 3.2+), so the declared Rails floor gets exercised too.
+
+---
+
 ## [1.2.0] - 2026-07-03
 
 ### Fixed
