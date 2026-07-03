@@ -24,7 +24,7 @@ module Verikloak
         middleware_insert_after auto_insert_bff_header_guard
         bff_header_guard_insert_before bff_header_guard_insert_after
         token_verify_options decoder_cache_limit token_env_key user_env_key
-        bff_header_guard_options allow_http
+        bff_header_guard_options allow_http jwks_refresh_interval
       ].freeze
 
       config.verikloak = ActiveSupport::OrderedOptions.new

@@ -37,4 +37,23 @@ RSpec.describe Verikloak::Rails::Configuration do
       expect(config.effective_user_env_key).to eq('custom.user')
     end
   end
+
+  describe '#jwks_refresh_interval' do
+    it 'defaults to nil and is omitted from middleware_options so the core default applies' do
+      expect(config.jwks_refresh_interval).to be_nil
+      expect(config.middleware_options).not_to have_key(:jwks_refresh_interval)
+    end
+
+    it 'is forwarded through middleware_options when set' do
+      config.jwks_refresh_interval = 120
+
+      expect(config.middleware_options[:jwks_refresh_interval]).to eq(120)
+    end
+
+    it 'forwards 0 (revalidate on every request) instead of compacting it away' do
+      config.jwks_refresh_interval = 0
+
+      expect(config.middleware_options[:jwks_refresh_interval]).to eq(0)
+    end
+  end
 end

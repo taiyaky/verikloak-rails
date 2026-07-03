@@ -48,7 +48,3 @@ Metrics/ParameterLists:
 Metrics/ClassLength:
   Max: 150               # Relax class length a bit to accommodate documentation and small helpers
   CountComments: false   # Do not count comments toward class length
-
-Metrics/ModuleLength:
-  Max: 150               # Match Metrics/ClassLength for concern-heavy modules
-  CountComments: false   # Do not count comments toward module length

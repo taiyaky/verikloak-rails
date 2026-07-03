@@ -70,7 +70,7 @@ module Verikloak
                     :bff_header_guard_insert_before, :bff_header_guard_insert_after,
                     :token_verify_options, :decoder_cache_limit,
                     :token_env_key, :user_env_key, :bff_header_guard_options,
-                    :allow_http
+                    :allow_http, :jwks_refresh_interval
 
       attr_reader :skip_paths
 
@@ -98,6 +98,7 @@ module Verikloak
         @user_env_key = nil
         @bff_header_guard_options = {}
         @allow_http = false
+        @jwks_refresh_interval = nil
         @skip_path_matcher = nil
       end
 
@@ -149,7 +150,8 @@ module Verikloak
           decoder_cache_limit: decoder_cache_limit,
           token_env_key: token_env_key,
           user_env_key: user_env_key,
-          allow_http: allow_http
+          allow_http: allow_http,
+          jwks_refresh_interval: jwks_refresh_interval
         }.compact
       end
 

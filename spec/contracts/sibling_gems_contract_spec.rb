@@ -42,6 +42,7 @@ RSpec.describe 'verikloak (core gem) contract', :contract do
       c.skip_paths = ['/health']
       c.token_verify_options = { verify_iat: false }
       c.decoder_cache_limit = 8
+      c.jwks_refresh_interval = 30
       c.token_env_key = 'custom.token'
       c.user_env_key = 'custom.user'
       c.allow_http = false
