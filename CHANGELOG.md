@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`Configuration#effective_token_env_key` / `#effective_user_env_key`**: single source of truth for resolving the Rack env keys (custom value or core default), shared by the controller helpers, `RequestStoreMirror`, and `Testing::MiddlewareStub`.
 - **Contract specs against the real sibling gems** (`spec/contracts`): verify the constructor/config surfaces of `verikloak` core, `verikloak-pundit`, `verikloak-bff`, and `verikloak-audience` that this gem relies on. Tagged `:contract` and excluded from the default run; the new CI `contracts` job runs them with `gemfiles/contracts.Gemfile` so interface drift is caught even though the unit suite uses fakes.
 
+### Security
+- **Bumped locked dependencies to clear all Dependabot / bundler-audit advisories**: `jwt` 3.2.0 (GHSA-c32j-vqhx-rx3x, High), `faraday` 2.14.3 (GHSA-98m9-hrrm-r99r High, GHSA-5rv5-xj5j-3484 Medium), `net-imap` 0.6.4.1 (2 Medium, 1 Low), `nokogiri` 1.19.4 (9 advisories), `concurrent-ruby` 1.3.7 and `crass` 1.0.7 (3 + 4 advisories). All are transitive development/test dependencies pinned by `Gemfile.lock`; the gem's runtime requirements are unchanged.
+
 ### Changed
 - **Error handlers now read configuration at request time**: `rescue_from StandardError` / `rescue_from Pundit::NotAuthorizedError` are registered unconditionally and consult `render_500_json` / `rescue_pundit` per request, instead of freezing the values at include time. This removes a boot-order hazard where an initializer touching `ActionController::Base` before `verikloak.configure` ran would bake in default settings. Behavior with the rescues disabled is unchanged (the exception is re-raised).
 - **Log-tag sanitization extracted** to a shared `_verikloak_sanitize_tag` helper (same `[[:cntrl:]]` stripping, applied to both `request_id` and `sub` tags).
