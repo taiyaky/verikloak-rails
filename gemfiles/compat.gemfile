@@ -7,7 +7,9 @@
 # Ruby >= 3.2, so it cannot install on every interpreter the gemspec claims
 # via `required_ruby_version >= 3.1`. This file carries only what the unit
 # suite needs and lets each matrix Ruby resolve the newest Rails it supports
-# (7.2 on Ruby 3.1, 8.1 on 3.2+), so the Rails floor gets exercised too.
+# (7.2 on Ruby 3.1, 8.1 on 3.2+), which also covers a Rails series older
+# than the pinned development one. It does not exercise the declared
+# Rails minimum (>= 6.1).
 source 'https://rubygems.org'
 
 gemspec path: '..'
