@@ -31,3 +31,6 @@ Thumbs.db
 
 # Ignore external comparison clones
 external/
+
+# Lockfiles for alternate gemfiles (resolved at CI runtime)
+gemfiles/*.lock

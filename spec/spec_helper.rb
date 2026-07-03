@@ -35,4 +35,12 @@ RSpec.configure do |config|
   # Run specs in random order to surface order dependencies.
   config.order = :random
   Kernel.srand config.seed
+
+  # Contract specs (spec/contracts) exercise the REAL sibling gems and must
+  # run in a dedicated process so they do not collide with the fakes/stubs
+  # used by the unit suite. CI runs them in the "contracts" job:
+  #   BUNDLE_GEMFILE=gemfiles/contracts.Gemfile bundle install
+  #   VERIKLOAK_CONTRACTS=true BUNDLE_GEMFILE=gemfiles/contracts.Gemfile \
+  #     bundle exec rspec spec/contracts
+  config.filter_run_excluding :contract unless ENV['VERIKLOAK_CONTRACTS'] == 'true'
 end

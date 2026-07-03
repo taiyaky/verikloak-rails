@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **`Testing::Helpers#build_pundit_user_context` crashed against the real `verikloak-pundit` gem**: the helper called `UserContext.new(user, claims)`, but verikloak-pundit's constructor is `UserContext.new(claims, resource_client: nil, config: nil)` (a single positional argument), so `build_admin_user_context` / `build_user_user_context` always raised `ArgumentError`. The helper now takes the claims Hash (`build_pundit_user_context(claims, **options)`) and forwards keyword options such as `resource_client:` to the real constructor. The unit-spec fake was aligned with the real signature, and new contract specs (see below) guard against future drift.
+- **Controller helpers ignored custom `token_env_key` / `user_env_key`**: `current_user_claims` / `current_token` (and therefore `authenticate_user!`) always read the default `verikloak.user` / `verikloak.token` env keys, so configuring custom keys caused valid requests to be rejected with 401. The helpers and `Testing::MiddlewareStub` now resolve keys via the new `Configuration#effective_user_env_key` / `#effective_token_env_key`, matching what the middleware writes (and what `verikloak-pundit` already syncs to).
+- **`require 'verikloak/rails'` failed outside a booted Rails app**: the Railtie now requires the ActiveSupport core extensions it depends on (`delegate_missing_to`, `blank?`) before `rails/railtie`, so the gem can be loaded standalone (e.g. from contract specs or plain scripts).
+
+### Added
+- **`Verikloak::Rails::RequestStoreMirror` middleware**: when the `request_store` gem is on the load path, the Railtie inserts this middleware right after `Verikloak::Middleware` to mirror `verikloak.user` / `verikloak.token` (or the configured custom keys) into `RequestStore.store`. Previously the controller helpers' RequestStore fallback documented in the README had no writer — nothing ever mirrored the values — so it only worked if the application mirrored them by hand.
+- **`Configuration#effective_token_env_key` / `#effective_user_env_key`**: single source of truth for resolving the Rack env keys (custom value or core default), shared by the controller helpers, `RequestStoreMirror`, and `Testing::MiddlewareStub`.
+- **Contract specs against the real sibling gems** (`spec/contracts`): verify the constructor/config surfaces of `verikloak` core, `verikloak-pundit`, `verikloak-bff`, and `verikloak-audience` that this gem relies on. Tagged `:contract` and excluded from the default run; the new CI `contracts` job runs them with `gemfiles/contracts.Gemfile` so interface drift is caught even though the unit suite uses fakes.
+
+### Changed
+- **Error handlers now read configuration at request time**: `rescue_from StandardError` / `rescue_from Pundit::NotAuthorizedError` are registered unconditionally and consult `render_500_json` / `rescue_pundit` per request, instead of freezing the values at include time. This removes a boot-order hazard where an initializer touching `ActionController::Base` before `verikloak.configure` ran would bake in default settings. Behavior with the rescues disabled is unchanged (the exception is re-raised).
+- **Log-tag sanitization extracted** to a shared `_verikloak_sanitize_tag` helper (same `[[:cntrl:]]` stripping, applied to both `request_id` and `sub` tags).
+- `Gemfile.lock` now includes the `x86_64-linux` / `aarch64-linux` (glibc) platforms so `bundle install` works outside the Alpine (musl) Docker image.
+
+---
+
 ## [1.1.0] - 2026-05-09
 
 ### Added

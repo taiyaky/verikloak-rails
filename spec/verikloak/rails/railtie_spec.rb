@@ -56,6 +56,37 @@ RSpec.describe Verikloak::Rails::Railtie, type: :railtie do
     end
   end
 
+  describe '.insert_request_store_mirror' do
+    let(:railtie) { described_class }
+    let(:middleware_stack) { double('MiddlewareStack') }
+
+    it 'inserts the mirror after the base middleware when RequestStore is defined' do
+      stub_const('RequestStore', Class.new)
+
+      expect(middleware_stack).to receive(:insert_after)
+        .with(::Verikloak::Middleware, Verikloak::Rails::RequestStoreMirror)
+
+      railtie.send(:insert_request_store_mirror, middleware_stack)
+    end
+
+    it 'does nothing when RequestStore is not defined' do
+      hide_const('RequestStore') if defined?(::RequestStore)
+
+      expect(middleware_stack).not_to receive(:insert_after)
+
+      railtie.send(:insert_request_store_mirror, middleware_stack)
+    end
+
+    it 'logs a warning instead of raising when insertion fails' do
+      stub_const('RequestStore', Class.new)
+      allow(middleware_stack).to receive(:insert_after).and_raise(StandardError, 'no such middleware')
+      allow(Verikloak::Rails::RailtieLogger).to receive(:warn)
+
+      expect { railtie.send(:insert_request_store_mirror, middleware_stack) }.not_to raise_error
+      expect(Verikloak::Rails::RailtieLogger).to have_received(:warn).with(/RequestStoreMirror/)
+    end
+  end
+
   describe '.insert_middleware_after' do
     let(:railtie) { described_class }
     let(:middleware_stack) { double('MiddlewareStack') }

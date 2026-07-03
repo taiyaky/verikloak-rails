@@ -1,9 +1,13 @@
 # frozen_string_literal: true
 
+require 'active_support'
+require 'active_support/core_ext/module/delegation'
+require 'active_support/core_ext/object/blank'
 require 'rails/railtie'
 require 'verikloak/middleware'
 require_relative 'railtie_logger'
 require_relative 'bff_configurator'
+require_relative 'request_store_mirror'
 
 module Verikloak
   module Rails
@@ -63,22 +67,33 @@ module Verikloak
           end
 
           stack = insert_base_middleware(app)
-          BffConfigurator.configure_bff_guard(stack) if stack
+          if stack
+            insert_request_store_mirror(stack)
+            BffConfigurator.configure_bff_guard(stack)
+          end
 
           stack
         end
 
-        # Check if discovery_url is present and valid.
+        # Check if discovery_url is configured (non-blank).
         #
-        # @return [Boolean] true if discovery_url is configured and not empty
+        # @return [Boolean]
         def discovery_url_present?
-          discovery_url = Verikloak::Rails.config.discovery_url
-          return false unless discovery_url
+          Verikloak::Rails.config.discovery_url.present?
+        end
 
-          return !discovery_url.blank? if discovery_url.respond_to?(:blank?)
-          return !discovery_url.empty? if discovery_url.respond_to?(:empty?)
+        # Mirror Verikloak env values into RequestStore when the gem is
+        # present, so the controller helpers' RequestStore fallback works
+        # outside the request cycle (e.g. jobs enqueued during a request).
+        #
+        # @param stack [ActionDispatch::MiddlewareStackProxy]
+        # @return [void]
+        def insert_request_store_mirror(stack)
+          return unless defined?(::RequestStore)
 
-          true
+          stack.insert_after ::Verikloak::Middleware, RequestStoreMirror
+        rescue StandardError => e
+          RailtieLogger.warn("[verikloak] Unable to insert RequestStoreMirror: #{e.message}")
         end
 
         # Log a warning message when discovery_url is missing.

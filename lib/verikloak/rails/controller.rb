@@ -15,17 +15,16 @@ module Verikloak
 
       included do
         before_action :authenticate_user!
-        # Register generic error handler first so specific handlers take precedence.
-        if Verikloak::Rails.config.render_500_json
-          rescue_from StandardError do |e|
-            _verikloak_log_internal_error(e)
-            render json: { error: 'internal_server_error', message: 'An unexpected error occurred' },
-                   status: :internal_server_error
-          end
+        # Handlers are registered unconditionally and consult the configuration
+        # at request time, so settings applied after this concern is included
+        # (e.g. by initializers that load ActionController early) still take
+        # effect. Generic handler first so specific handlers take precedence.
+        rescue_from StandardError do |e|
+          _verikloak_handle_standard_error(e)
         end
-        if defined?(::Pundit::NotAuthorizedError) && Verikloak::Rails.config.rescue_pundit
+        if defined?(::Pundit::NotAuthorizedError)
           rescue_from ::Pundit::NotAuthorizedError do |e|
-            render json: { error: 'forbidden', message: e.message }, status: :forbidden
+            _verikloak_handle_pundit_error(e)
           end
         end
         rescue_from ::Verikloak::Error do |e|
@@ -54,17 +53,19 @@ module Verikloak
       def authenticated? = current_user_claims.present?
 
       # The verified JWT claims for the current user.
-      # Prefer Rack env; fall back to RequestStore when available.
+      # Prefer Rack env (honoring a custom `user_env_key`); fall back to
+      # RequestStore when available.
       # @return [Hash, nil]
       def current_user_claims
-        _verikloak_fetch_request_context('verikloak.user', :verikloak_user)
+        _verikloak_fetch_request_context(Verikloak::Rails.config.effective_user_env_key, :verikloak_user)
       end
 
       # The raw bearer token used for the current request.
-      # Prefer Rack env; fall back to RequestStore when available.
+      # Prefer Rack env (honoring a custom `token_env_key`); fall back to
+      # RequestStore when available.
       # @return [String, nil]
       def current_token
-        _verikloak_fetch_request_context('verikloak.token', :verikloak_token)
+        _verikloak_fetch_request_context(Verikloak::Rails.config.effective_token_env_key, :verikloak_token)
       end
 
       # The `sub` (subject) claim from the current user claims.
@@ -87,6 +88,48 @@ module Verikloak
 
       private
 
+      # Handle uncaught StandardError: render the generic JSON 500 when
+      # `render_500_json` is enabled, otherwise re-raise so Rails' default
+      # error handling applies. Evaluated per request so late configuration
+      # changes take effect.
+      #
+      # @param exception [StandardError]
+      # @return [void]
+      # @raise [StandardError] the original exception when rendering is disabled
+      def _verikloak_handle_standard_error(exception)
+        raise exception unless Verikloak::Rails.config.render_500_json
+
+        _verikloak_render_internal_error(exception)
+      end
+
+      # Handle `Pundit::NotAuthorizedError`: render 403 JSON when
+      # `rescue_pundit` is enabled; otherwise defer to the 500 renderer or
+      # re-raise, matching what would happen if this handler were absent.
+      #
+      # @param exception [StandardError]
+      # @return [void]
+      # @raise [StandardError] the original exception when both rescues are disabled
+      def _verikloak_handle_pundit_error(exception)
+        config = Verikloak::Rails.config
+        if config.rescue_pundit
+          render json: { error: 'forbidden', message: exception.message }, status: :forbidden
+        elsif config.render_500_json
+          _verikloak_render_internal_error(exception)
+        else
+          raise exception
+        end
+      end
+
+      # Log the exception and render the static JSON 500 body.
+      #
+      # @param exception [Exception]
+      # @return [void]
+      def _verikloak_render_internal_error(exception)
+        _verikloak_log_internal_error(exception)
+        render json: { error: 'internal_server_error', message: 'An unexpected error occurred' },
+               status: :internal_server_error
+      end
+
       # Wraps the request in tagged logs for request ID and subject when available.
       # @yieldreturn [Object] result of the block
       # @return [Object]
@@ -105,18 +148,22 @@ module Verikloak
         config = Verikloak::Rails.config
         tags = []
         if config.logger_tags.include?(:request_id)
-          rid = request.request_id || request.headers['X-Request-Id']
-          rid = rid.to_s.gsub(/[[:cntrl:]]+/, ' ').strip
-          tags << "req:#{rid}" unless rid.empty?
+          rid = _verikloak_sanitize_tag(request.request_id || request.headers['X-Request-Id'])
+          tags << "req:#{rid}" if rid
         end
         if config.logger_tags.include?(:sub)
-          sub = current_subject
-          if sub
-            sanitized = sub.to_s.gsub(/[[:cntrl:]]+/, ' ').strip
-            tags << "sub:#{sanitized}" unless sanitized.empty?
-          end
+          sub = _verikloak_sanitize_tag(current_subject)
+          tags << "sub:#{sub}" if sub
         end
         tags
+      end
+
+      # Strip control characters and surrounding whitespace from a log tag value.
+      # @param value [Object, nil]
+      # @return [String, nil] sanitized value, or nil when blank
+      def _verikloak_sanitize_tag(value)
+        sanitized = value.to_s.gsub(/[[:cntrl:]]+/, ' ').strip
+        sanitized.empty? ? nil : sanitized
       end
 
       # Retrieve request context from Rack env or RequestStore.

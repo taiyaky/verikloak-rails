@@ -5,6 +5,7 @@ require 'verikloak/rails/skip_path_checker'
 require 'verikloak/rails/configuration'
 require 'verikloak/rails/error_renderer'
 require 'verikloak/rails/controller'
+require 'verikloak/rails/request_store_mirror'
 require 'verikloak/rails/railtie'
 
 module Verikloak

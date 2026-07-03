@@ -110,6 +110,15 @@ RSpec.describe 'Rails integration', type: :request do
 
   before do
     Verikloak::Rails.reset!
+    # The Railtie applies TestApp's `config.verikloak` only once at boot, but
+    # reset! wipes the global configuration and the controller handlers read
+    # it at request time — so mirror the TestApp configuration here.
+    Verikloak::Rails.configure do |c|
+      c.discovery_url = 'https://example/.well-known/openid-configuration'
+      c.audience = 'rails-api'
+      c.leeway = 60
+      c.render_500_json = true
+    end
   end
 
   def app

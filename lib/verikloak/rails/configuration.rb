@@ -56,6 +56,12 @@ module Verikloak
     #   Rack middleware to insert the header guard after.
     #   @return [Object, String, Symbol, nil]
     class Configuration
+      # Default Rack env keys. These mirror the defaults used by the core
+      # `Verikloak::Middleware` and are the fallback when `token_env_key` /
+      # `user_env_key` are left unset.
+      DEFAULT_TOKEN_ENV_KEY = 'verikloak.token'
+      DEFAULT_USER_ENV_KEY  = 'verikloak.user'
+
       attr_accessor :discovery_url, :audience, :issuer, :leeway,
                     :logger_tags, :error_renderer, :auto_include_controller,
                     :render_500_json, :rescue_pundit,
@@ -107,6 +113,22 @@ module Verikloak
         @skip_path_matcher ||= SkipPathChecker.new(skip_paths)
       end
 
+      # Rack env key actually used for the bearer token: the configured
+      # `token_env_key`, or the core middleware default when unset/blank.
+      # Shared by the controller helpers, RequestStore mirroring, and the
+      # testing middleware stub so all layers stay in sync.
+      # @return [String]
+      def effective_token_env_key
+        presence_or_default(token_env_key, DEFAULT_TOKEN_ENV_KEY)
+      end
+
+      # Rack env key actually used for decoded claims: the configured
+      # `user_env_key`, or the core middleware default when unset/blank.
+      # @return [String]
+      def effective_user_env_key
+        presence_or_default(user_env_key, DEFAULT_USER_ENV_KEY)
+      end
+
       # Options forwarded to the base Verikloak Rack middleware.
       # @return [Hash]
       # @example
@@ -125,6 +147,16 @@ module Verikloak
           user_env_key: user_env_key,
           allow_http: allow_http
         }.compact
+      end
+
+      private
+
+      # @param value [String, nil]
+      # @param default [String]
+      # @return [String]
+      def presence_or_default(value, default)
+        str = value.to_s
+        str.empty? ? default : str
       end
     end
   end

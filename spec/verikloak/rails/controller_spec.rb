@@ -56,6 +56,83 @@ RSpec.describe Verikloak::Rails::Controller do
     end
   end
 
+  describe 'custom env keys' do
+    let(:env) { { 'custom.user' => { 'sub' => 'user-9' }, 'custom.token' => 'tok-9' } }
+
+    before do
+      Verikloak::Rails.config.user_env_key = 'custom.user'
+      Verikloak::Rails.config.token_env_key = 'custom.token'
+    end
+
+    it 'reads claims from the configured user_env_key' do
+      expect(controller.current_user_claims).to eq('sub' => 'user-9')
+    end
+
+    it 'reads the token from the configured token_env_key' do
+      expect(controller.current_token).to eq('tok-9')
+    end
+
+    it 'treats the request as authenticated' do
+      expect(controller.authenticated?).to be(true)
+    end
+  end
+
+  describe '#_verikloak_handle_standard_error' do
+    let(:exception) { StandardError.new('boom') }
+
+    it 're-raises when render_500_json is disabled' do
+      Verikloak::Rails.config.render_500_json = false
+      expect { controller.send(:_verikloak_handle_standard_error, exception) }
+        .to raise_error(exception)
+      expect(controller.render_calls).to be_empty
+    end
+
+    it 'renders the JSON 500 when render_500_json is enabled at request time' do
+      Verikloak::Rails.config.render_500_json = true
+      allow(controller).to receive(:_verikloak_log_internal_error)
+
+      controller.send(:_verikloak_handle_standard_error, exception)
+
+      expect(controller.render_calls.last).to include(
+        json: { error: 'internal_server_error', message: 'An unexpected error occurred' },
+        status: :internal_server_error
+      )
+    end
+  end
+
+  describe '#_verikloak_handle_pundit_error' do
+    let(:exception) { StandardError.new('nope') }
+
+    it 'renders 403 JSON when rescue_pundit is enabled' do
+      Verikloak::Rails.config.rescue_pundit = true
+
+      controller.send(:_verikloak_handle_pundit_error, exception)
+
+      expect(controller.render_calls.last).to include(
+        json: { error: 'forbidden', message: 'nope' },
+        status: :forbidden
+      )
+    end
+
+    it 'falls back to the JSON 500 when rescue_pundit is disabled but render_500_json is enabled' do
+      Verikloak::Rails.config.rescue_pundit = false
+      Verikloak::Rails.config.render_500_json = true
+      allow(controller).to receive(:_verikloak_log_internal_error)
+
+      controller.send(:_verikloak_handle_pundit_error, exception)
+
+      expect(controller.render_calls.last).to include(status: :internal_server_error)
+    end
+
+    it 're-raises when both rescues are disabled' do
+      Verikloak::Rails.config.rescue_pundit = false
+      Verikloak::Rails.config.render_500_json = false
+
+      expect { controller.send(:_verikloak_handle_pundit_error, exception) }
+        .to raise_error(exception)
+    end
+  end
+
   describe '#_verikloak_base_logger' do
     it 'walks nested loggers to locate the innermost logger with error support' do
       inner_logger = Class.new do

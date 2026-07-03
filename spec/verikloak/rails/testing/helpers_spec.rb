@@ -11,21 +11,37 @@ RSpec.describe Verikloak::Rails::Testing::Helpers do
   describe '#build_pundit_user_context' do
     it 'raises when verikloak-pundit is not loaded' do
       hide_const('Verikloak::Pundit') if defined?(::Verikloak::Pundit)
-      expect { helper.build_pundit_user_context(user, {}) }
+      expect { helper.build_pundit_user_context({}) }
         .to raise_error(RuntimeError, /verikloak-pundit/)
     end
 
     context 'when verikloak-pundit is loaded' do
       before do
-        ctx_class = Struct.new(:user, :claims)
+        # Mirrors verikloak-pundit 1.0's UserContext#initialize signature:
+        # a single positional claims Hash plus keyword options. Keeping the
+        # fake aligned with the real constructor is what the contract specs
+        # in spec/contracts verify against the real gem.
+        ctx_class = Class.new do
+          attr_reader :claims, :resource_client, :config
+
+          def initialize(claims, resource_client: nil, config: nil)
+            @claims = claims
+            @resource_client = resource_client
+            @config = config
+          end
+        end
         stub_const('Verikloak::Pundit', Module.new)
         stub_const('Verikloak::Pundit::UserContext', ctx_class)
       end
 
-      it 'wraps user and claims into a UserContext' do
-        ctx = helper.build_pundit_user_context(user, 'sub' => 'u-1')
-        expect(ctx.user).to eq(user)
+      it 'wraps claims into a UserContext' do
+        ctx = helper.build_pundit_user_context({ 'sub' => 'u-1' })
         expect(ctx.claims).to eq('sub' => 'u-1')
+      end
+
+      it 'forwards keyword options to UserContext' do
+        ctx = helper.build_pundit_user_context({ 'sub' => 'u-1' }, resource_client: 'rails-api')
+        expect(ctx.resource_client).to eq('rails-api')
       end
 
       it '#build_admin_user_context produces admin claims' do

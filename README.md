@@ -53,7 +53,9 @@ Then configure `config/initializers/verikloak.rb`.
 The helpers follow this priority order:
 
 1. **Primary**: `request.env` (Rack environment) - Set directly by `Verikloak::Middleware`
-2. **Fallback**: `RequestStore.store` (when available) - Thread-local storage for background jobs
+2. **Fallback**: `RequestStore.store` (when available) - Thread-local storage for code running outside the controller
+
+When the [`request_store`](https://rubygems.org/gems/request_store) gem is on the load path, the Railtie automatically inserts `Verikloak::Rails::RequestStoreMirror` right after `Verikloak::Middleware`. It mirrors the claims/token from the Rack env into `RequestStore.store` on every request, so the fallback works out of the box (e.g. in service objects or jobs enqueued during the request).
 
 **Examples:**
 
@@ -62,8 +64,8 @@ The helpers follow this priority order:
 current_user_claims  # reads from request.env['verikloak.user']
 current_token        # reads from request.env['verikloak.token']
 
-# In a background job triggered during request
-# (when RequestStore gem is present and middleware has mirrored values)
+# Outside the controller during the same request
+# (when the request_store gem is present; mirrored automatically)
 current_user_claims  # falls back to RequestStore.store[:verikloak_user]
 current_token        # falls back to RequestStore.store[:verikloak_token]
 
@@ -124,6 +126,7 @@ end
 | --- | --- | --- |
 | `Verikloak::Bff::HeaderGuard` (optional) | Before `Verikloak::Middleware` by default when the gem is present | Normalize or enforce trusted proxy headers such as `X-Forwarded-Access-Token` |
 | `Verikloak::Middleware` | After `Rails::Rack::Logger` by default (configurable) | Validate Bearer JWT (OIDC discovery + JWKS), set `verikloak.user`/`verikloak.token`, and honor `skip_paths` |
+| `Verikloak::Rails::RequestStoreMirror` (optional) | After `Verikloak::Middleware`, when the `request_store` gem is present | Mirror `verikloak.user`/`verikloak.token` into `RequestStore.store` for the controller helpers' fallback |
 
 ### BFF Integration
 Support for BFF header handling (e.g., normalizing or enforcing `X-Forwarded-Access-Token`) now lives in a dedicated gem: verikloak-bff.
@@ -291,7 +294,8 @@ end
 `stub_verikloak_middleware` automatically also stubs
 `Verikloak::BFF::HeaderGuard` and `Verikloak::Audience::Middleware` when
 those gems are loaded, and sets `env['verikloak.token']` so controller
-helpers like `current_token` work.
+helpers like `current_token` work. Custom `user_env_key` / `token_env_key`
+settings are honored automatically.
 
 ### Policy specs (with `verikloak-pundit`)
 
