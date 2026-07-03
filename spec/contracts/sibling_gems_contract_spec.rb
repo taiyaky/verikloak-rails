@@ -150,7 +150,10 @@ RSpec.describe 'verikloak-bff contract', :contract do
 
   it 'stores the inner app in @app (MiddlewareStub passthrough contract)' do
     inner = ->(_env) { [204, {}, []] }
-    guard = ::Verikloak::BFF::HeaderGuard.new(inner)
+    # HeaderGuard validates its configuration at construction time and
+    # requires trusted_proxies (or disabled: true), so pass explicit opts
+    # to keep this example independent of global BFF.config state.
+    guard = ::Verikloak::BFF::HeaderGuard.new(inner, trusted_proxies: ['127.0.0.1'])
 
     expect(guard.instance_variable_get(:@app)).to equal(inner)
   end
